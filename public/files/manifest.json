@@ -1,0 +1,29 @@
+{
+  "files": [
+    {
+      "name": "sns-guideline-doc.md",
+      "type": "text",
+      "path": "/files/sns-guideline-doc.md"
+    },
+    {
+      "name": "【Dify×LINE】DifyとLINEを連携させよう　GASコード付き！【エージェント編】｜AI BOOTCAMP 公式note.pdf",
+      "type": "pdf",
+      "path": "/files/【Dify×LINE】DifyとLINEを連携させよう　GASコード付き！【エージェント編】｜AI BOOTCAMP 公式note.pdf"
+    },
+    {
+      "name": "吉原様_コンセプトメイキング攻略.pdf",
+      "type": "pdf",
+      "path": "/files/吉原様_コンセプトメイキング攻略.pdf"
+    },
+    {
+      "name": "埼玉県DX推進支援ネットワーク _ プロジェクト詳細.pdf",
+      "type": "pdf",
+      "path": "/files/埼玉県DX推進支援ネットワーク _ プロジェクト詳細.pdf"
+    },
+    {
+      "name": "様式3_経費明細表_完全版.xlsx",
+      "type": "other",
+      "path": "/files/様式3_経費明細表_完全版.xlsx"
+    }
+  ]
+}
