@@ -1,16 +1,231 @@
-# React + Vite
+# 楽々ライブラリ - Book View Application
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+[![GitHub](https://img.shields.io/badge/GitHub-Repository-blue)](https://github.com/Diji-Ken/raku-library)
+[![React](https://img.shields.io/badge/React-19.1.1-61DAFB?logo=react)](https://react.dev/)
+[![Vite](https://img.shields.io/badge/Vite-7.1.14-646CFF?logo=vite)](https://vitejs.dev/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Currently, two official plugins are available:
+洗練されたデジタルライブラリアプリケーション。PDF、Office文書、画像、動画など、多様なファイル形式を本のように閲覧できます。
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 🌟 デモ
 
-## React Compiler
+- **GitHub Repository**: https://github.com/Diji-Ken/raku-library
+- **ローカル開発**: http://localhost:5173/
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 🚀 主な機能
 
-## Expanding the ESLint configuration
+### ✨ ファイル管理
+- **複数ファイル形式対応**
+  - **ドキュメント**: PDF、Word (.docx/.doc)、Excel (.xlsx/.xls)
+  - **データ**: JSON、CSV、HTML、Markdown (.md)
+  - **画像**: JPEG, PNG, HEIC, GIF, BMP, WebP
+  - **動画**: MP4, MOV, AVI, WebM
+  - **テキスト**: TXT、その他テキストファイル
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+### 📚 本のような操作性
+- **ページめくり機能**
+  - マウスドラッグでページめくり
+  - スワイプ操作（スマホ対応）
+  - 矢印キー（← →）で前後のページへ移動
+  - ページインジケーターで任意のページへジャンプ
+
+### 📁 階層的なフォルダ管理
+- キャビネット → フォルダ → ドキュメントの3階層構造
+- 左サイドバーでツリー表示
+- フォルダの展開/折りたたみ
+- 各階層でのフォルダ作成・削除
+- ドキュメントの削除機能
+
+### 🔍 検索機能
+- リアルタイム検索
+- ドキュメント名と内容の全文検索
+- 左サイドバーで素早くアクセス
+
+### 📊 並び替え機能
+- **名前順**: A → Z / Z → A
+- **日付順**: 古い順 / 新しい順
+- ヘッダーのドロップダウンで簡単切り替え
+
+### 💾 データ管理
+- **ファイル追加**
+  - 個別ファイル選択
+  - フォルダ一括選択
+  - ドラッグ&ドロップ対応
+- **ダウンロード機能**
+  - オリジナルファイルをそのままダウンロード
+  - ドキュメントビューアーから直接ダウンロード
+- **印刷機能**
+  - 現在表示中のページを印刷
+  - 各ファイル形式に最適化されたレイアウト
+- **データエクスポート**
+  - ライブラリ全体をJSONでエクスポート
+  - 他の環境へ簡単に移行可能
+- **データインポート**
+  - エクスポートしたJSONファイルをインポート
+  - ライブラリの復元・共有が簡単
+
+### 🎨 洗練されたデザイン
+- モダンなグラデーションデザイン
+- スムーズなアニメーション
+- レスポンシブデザイン（PC・スマホ対応）
+- ガラスモーフィズムUI
+- ドラッグ時の視覚的フィードバック
+
+## 🛠️ セットアップ
+
+### 前提条件
+- Node.js (v18以上推奨)
+- npm または yarn
+
+### インストール
+
+```bash
+# リポジトリをクローン
+git clone https://github.com/Diji-Ken/raku-library.git
+cd raku-library
+
+# 依存関係のインストール
+npm install
+
+# 開発サーバーを起動
+npm run dev
+```
+
+アプリケーションは http://localhost:5173/ で起動します。
+
+### ビルド
+
+```bash
+# 本番用ビルド
+npm run build
+
+# ビルド結果のプレビュー
+npm run preview
+```
+
+### テスト
+
+```bash
+# E2Eテストを実行
+npm run test:e2e
+```
+
+## 📖 使い方
+
+### 1. ファイルを追加する
+
+1. **「ファイルを追加」ボタン**をクリック
+2. 以下の3つのオプションから選択：
+   - **個別ファイルを選択**: 1つまたは複数のファイルを選択
+   - **フォルダを一括選択**: フォルダ内の全ファイルを一度に追加
+   - **ライブラリをインポート**: 以前エクスポートしたJSONファイルをインポート
+3. または、メインエリアにファイルをドラッグ&ドロップ
+
+### 2. ドキュメントを閲覧する
+
+1. 右側のメインエリアに表示されているドキュメントカードをクリック
+2. モーダルでドキュメントが開きます
+3. ページめくり方法：
+   - **マウス**: ドラッグして左右にスワイプ
+   - **タッチ**: スワイプ操作
+   - **キーボード**: ← → キー
+   - **ボタン**: 画面左右のナビゲーションボタン
+   - **インジケーター**: 下部のページインジケーターをクリック
+
+### 3. ドキュメント操作
+
+ドキュメントビューアーのヘッダーに以下のボタンがあります：
+- **印刷ボタン**: 現在のページを印刷
+- **ダウンロードボタン**: オリジナルファイルをダウンロード
+- **閉じるボタン**: ビューアーを閉じる (ESCキーでも可)
+
+### 4. フォルダを作成する
+
+- **「フォルダ作成」**: サブフォルダを作成
+- **「親フォルダ作成」**: 新しいキャビネットを作成
+
+### 5. ファイルを並び替える
+
+ヘッダーのドロップダウンメニューから選択：
+- 名前順 (A → Z)
+- 名前順 (Z → A)
+- 日付順 (古い順)
+- 日付順 (新しい順)
+
+### 6. データをエクスポート/インポート
+
+- **エクスポート**: 「エクスポート」ボタンをクリックしてJSONファイルをダウンロード
+- **インポート**: 「ファイルを追加」→「ライブラリをインポート」からJSONファイルを選択
+
+### 7. 検索機能
+
+- 左サイドバー上部の検索ボックスにキーワードを入力
+- ドキュメント名と内容を検索します
+- 検索結果がリアルタイムで表示されます
+
+## 📝 技術スタック
+
+- **React 19.1.1** - UIフレームワーク
+- **Vite (rolldown-vite 7.1.14)** - 高速ビルドツール
+- **lucide-react** - アイコンライブラリ
+- **react-pdf / pdfjs-dist** - PDF表示
+- **mammoth** - Word文書変換 (MIT License)
+- **xlsx** - Excel/CSV処理 (Apache 2.0 License)
+- **Playwright** - E2Eテスト
+
+すべてのライブラリは無料で商用利用可能です。
+
+## 🎨 カスタマイズ
+
+### 色の変更
+
+`src/document-library.jsx` の `styles` 定数内で、カラーグラデーションをカスタマイズできます：
+
+```javascript
+.library-container {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  // お好みの色に変更
+}
+```
+
+### ドキュメントカラー
+
+ドキュメントアップロード時にランダムで色が割り当てられます。`getBinderColorValue` 関数で色をカスタマイズできます。
+
+## 🔮 今後の予定
+
+- [ ] クラウドデータベース対応（Firebase/Supabase）
+- [ ] PowerPoint対応 (.pptx)
+- [ ] タグ機能
+- [ ] お気に入り機能
+- [ ] フルスクリーンモード
+- [ ] ダークモード対応
+- [ ] OCR機能（画像・PDF内のテキスト検索）
+- [ ] ファイルプレビューのサムネイル生成
+- [ ] コメント・注釈機能
+
+## 🤝 コントリビューション
+
+プルリクエストを歓迎します！大きな変更の場合は、まずissueを開いて変更内容を議論してください。
+
+1. このリポジトリをフォーク
+2. フィーチャーブランチを作成 (`git checkout -b feature/amazing-feature`)
+3. 変更をコミット (`git commit -m 'feat: Add amazing feature'`)
+4. ブランチにプッシュ (`git push origin feature/amazing-feature`)
+5. プルリクエストを開く
+
+## 📄 ライセンス
+
+MIT License - 詳細は [LICENSE](LICENSE) ファイルを参照してください。
+
+## 🙏 謝辞
+
+このプロジェクトは「楽々ライブラリ」にインスパイアされました。
+
+---
+
+**Built with ❤️ using React and Claude Code**
+
+🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+Co-Authored-By: Claude <noreply@anthropic.com>
