@@ -5,6 +5,7 @@ export interface DocumentPage {
   pageNumber?: number;
   content?: string;
   thumbnail?: string;
+  url?: string;
 }
 
 export interface DocumentNode {
@@ -13,8 +14,11 @@ export interface DocumentNode {
   type: 'document';
   color?: string;
   pages: DocumentPage[];
+  pdfUrl?: string;
   file?: File;
   originalFile?: File;
+  fileType?: string;
+  numPages?: number; // PDFの総ページ数
 }
 
 export interface FolderNode {

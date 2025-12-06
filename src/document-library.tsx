@@ -1087,24 +1087,35 @@ const mockData: LibraryData = {
           children: [
             {
               id: 'd4',
-              name: 'UI設計書',
+              name: '埼玉県DX推進支援ネットワーク',
               type: 'document',
               color: 'orange',
-              pages: [
-                { type: 'image', url: 'https://via.placeholder.com/800x1000/4A90E2/FFFFFF?text=UI設計書+ページ1' },
-                { type: 'image', url: 'https://via.placeholder.com/800x1000/7B68EE/FFFFFF?text=UI設計書+ページ2' },
-                { type: 'image', url: 'https://via.placeholder.com/800x1000/50C878/FFFFFF?text=UI設計書+ページ3' }
-              ]
+              pdfUrl: '/files/埼玉県DX推進支援ネットワーク _ プロジェクト詳細.pdf',
+              pages: []
             },
             {
               id: 'd5',
-              name: 'プロジェクト計画書',
+              name: 'DifyとLINE連携ガイド',
               type: 'document',
-              color: 'red',
-              pages: [
-                { type: 'text', content: 'プロジェクト計画書\n\n【プロジェクト概要】\n\nプロジェクト名: 新システム開発\n期間: 2024年4月〜2024年12月\n予算: 500万円\n\n目的:\n既存システムの刷新とユーザビリティの向上' },
-                { type: 'text', content: 'スケジュール\n\n第1フェーズ（4-6月）:\n・要件定義\n・基本設計\n\n第2フェーズ（7-9月）:\n・詳細設計\n・開発\n\n第3フェーズ（10-12月）:\n・テスト\n・リリース' }
-              ]
+              color: 'blue',
+              pdfUrl: '/files/【Dify×LINE】DifyとLINEを連携させよう　GASコード付き！【エージェント編】｜AI BOOTCAMP 公式note.pdf',
+              pages: []
+            },
+            {
+              id: 'd5-1',
+              name: 'コンセプトメイキング攻略',
+              type: 'document',
+              color: 'purple',
+              pdfUrl: '/files/吉原様_コンセプトメイキング攻略.pdf',
+              pages: []
+            },
+            {
+              id: 'd5-2',
+              name: '履歴書01',
+              type: 'document',
+              color: 'green',
+              pdfUrl: '/files/pdf_resume01.pdf',
+              pages: []
             }
           ]
         }
@@ -3053,9 +3064,17 @@ const DocumentLibrary = () => {
   };
 
   // 本棚UI用のハンドラー
-  const handleBookClick = (doc: DocumentNode) => {
-    setSelectedDocument(doc);
-    setCurrentPage(1);
+  const handleBookClick = async (doc: DocumentNode) => {
+    // pdfUrlがある場合は、react-pdfで表示するためにそのまま渡す
+    if (doc.pdfUrl && doc.pages.length === 0) {
+      // PDFファイルの場合は、pdfUrlをそのまま使ってreact-pdfで表示
+      // ページ情報は後でreact-pdf側で取得
+      setSelectedDocument(doc);
+    } else {
+      setSelectedDocument(doc);
+    }
+
+    setCurrentPage(0);
     setViewMode('spread'); // 見開き表示に切り替え
   };
 
@@ -3064,6 +3083,7 @@ const DocumentLibrary = () => {
     setSelectedDocument(null);
     setZoom(100);
     setRotation(0);
+    setShowPageThumbnails(false);
   };
 
   const handleZoomIn = () => {
@@ -3453,7 +3473,7 @@ const DocumentLibrary = () => {
               }}>
                 {/* ツールバー */}
                 <div style={{
-                  padding: '16px 24px',
+                  padding: '8px 16px',
                   backgroundColor: 'rgba(255, 255, 255, 0.95)',
                   backdropFilter: 'blur(10px)',
                   borderBottom: '1px solid rgba(0,0,0,0.05)',
@@ -3467,23 +3487,24 @@ const DocumentLibrary = () => {
                     onClick={() => {
                       setSelectedDocument(null);
                       setViewMode('bookshelf');
+                      setShowPageThumbnails(false);
                     }}
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '8px',
-                      padding: '8px 16px',
+                      gap: '6px',
+                      padding: '6px 12px',
                       backgroundColor: 'white',
                       border: '2px solid #667eea',
-                      borderRadius: '8px',
+                      borderRadius: '6px',
                       color: '#667eea',
-                      fontSize: '14px',
+                      fontSize: '13px',
                       fontWeight: '600',
                       cursor: 'pointer',
                       transition: 'all 0.2s'
                     }}
                   >
-                    <ChevronLeft size={18} />
+                    <ChevronLeft size={16} />
                     本棚に戻る
                   </button>
 
@@ -3495,10 +3516,10 @@ const DocumentLibrary = () => {
                         setOpenMenuId(openMenuId === `doc-${selectedDocument.id}` ? null : `doc-${selectedDocument.id}`);
                       }}
                       style={{
-                        padding: '10px 12px',
+                        padding: '6px 8px',
                         background: openMenuId === `doc-${selectedDocument.id}` ? '#f3f4f6' : 'white',
                         border: '2px solid #e5e7eb',
-                        borderRadius: '8px',
+                        borderRadius: '6px',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
@@ -3515,7 +3536,7 @@ const DocumentLibrary = () => {
                         e.currentTarget.style.borderColor = '#e5e7eb';
                       }}
                     >
-                      <MoreVertical style={{ width: '18px', height: '18px' }} />
+                      <MoreVertical style={{ width: '16px', height: '16px' }} />
                     </button>
 
                     {/* ドロップダウンメニュー */}
@@ -3617,29 +3638,29 @@ const DocumentLibrary = () => {
                   <button
                     onClick={handleZoomOut}
                     style={{
-                      padding: '8px 16px',
+                      padding: '6px 12px',
                       backgroundColor: 'white',
                       border: '2px solid #e5e7eb',
-                      borderRadius: '8px',
+                      borderRadius: '6px',
                       cursor: 'pointer',
-                      fontSize: '14px',
+                      fontSize: '13px',
                       fontWeight: '600'
                     }}
                   >
                     ズームアウト
                   </button>
-                  <span style={{ fontSize: '14px', fontWeight: '600', color: '#64748b' }}>
+                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#64748b' }}>
                     {zoom}%
                   </span>
                   <button
                     onClick={handleZoomIn}
                     style={{
-                      padding: '8px 16px',
+                      padding: '6px 12px',
                       backgroundColor: 'white',
                       border: '2px solid #e5e7eb',
-                      borderRadius: '8px',
+                      borderRadius: '6px',
                       cursor: 'pointer',
-                      fontSize: '14px',
+                      fontSize: '13px',
                       fontWeight: '600'
                     }}
                   >
@@ -3649,12 +3670,12 @@ const DocumentLibrary = () => {
                   <button
                     onClick={handleRotate}
                     style={{
-                      padding: '8px 16px',
+                      padding: '6px 12px',
                       backgroundColor: 'white',
                       border: '2px solid #e5e7eb',
-                      borderRadius: '8px',
+                      borderRadius: '6px',
                       cursor: 'pointer',
-                      fontSize: '14px',
+                      fontSize: '13px',
                       fontWeight: '600'
                     }}
                   >
@@ -3668,32 +3689,32 @@ const DocumentLibrary = () => {
                     style={{
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '6px',
-                      padding: '8px 16px',
+                      gap: '4px',
+                      padding: '6px 12px',
                       backgroundColor: showPageThumbnails ? '#667eea' : 'white',
                       border: `2px solid ${showPageThumbnails ? '#667eea' : '#e5e7eb'}`,
-                      borderRadius: '8px',
+                      borderRadius: '6px',
                       cursor: 'pointer',
-                      fontSize: '14px',
+                      fontSize: '13px',
                       fontWeight: '600',
                       color: showPageThumbnails ? 'white' : '#374151',
                       transition: 'all 0.2s'
                     }}
                   >
-                    <Grid style={{ width: '16px', height: '16px' }} />
+                    <Grid style={{ width: '14px', height: '14px' }} />
                     ページ一覧
                   </button>
 
                   <button
                     onClick={handleDownload}
                     style={{
-                      padding: '8px 16px',
+                      padding: '6px 12px',
                       backgroundColor: '#6366f1',
                       color: 'white',
                       border: 'none',
-                      borderRadius: '8px',
+                      borderRadius: '6px',
                       cursor: 'pointer',
-                      fontSize: '14px',
+                      fontSize: '13px',
                       fontWeight: '600'
                     }}
                   >
@@ -3702,11 +3723,17 @@ const DocumentLibrary = () => {
                 </div>
 
                 {/* 見開きビューアー */}
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+                <div style={{
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'hidden',
+                  height: '100%'
+                }}>
                   <div style={{
-                    flex: showPageThumbnails ? 1 : 1,
-                    overflow: 'auto',
-                    maxHeight: showPageThumbnails ? '50%' : '100%'
+                    flex: 1,
+                    overflow: 'hidden',
+                    flexShrink: 0
                   }}>
                     <SpreadView
                       document={selectedDocument}
@@ -3718,19 +3745,118 @@ const DocumentLibrary = () => {
                   </div>
 
                   {/* ページサムネイル表示パネル */}
-                  {showPageThumbnails && (
+                  {showPageThumbnails && (selectedDocument.pdfUrl || selectedDocument.originalFile) && (
                     <div style={{
-                      height: '50%',
+                      height: '520px',
                       borderTop: '2px solid #e5e7eb',
                       backgroundColor: '#f9fafb',
                       overflowY: 'auto',
                       padding: '16px',
+                      boxSizing: 'border-box',
+                      position: 'relative',
+                      flexShrink: 0
+                    }}>
+                      <Document
+                        file={(() => {
+                          let pdfSource = selectedDocument.originalFile;
+                          if (!pdfSource && selectedDocument.pdfUrl) {
+                            const parts = selectedDocument.pdfUrl.split('/');
+                            const encodedParts = parts.map((part, index) =>
+                              index < parts.length - 1 ? part : encodeURIComponent(part)
+                            );
+                            pdfSource = encodedParts.join('/');
+                          }
+                          return pdfSource;
+                        })()}
+                        onLoadSuccess={({ numPages }) => {
+                          // ページ数を取得したら、selectedDocumentを更新
+                          setSelectedDocument(prev => prev ? { ...prev, numPages } : prev);
+                        }}
+                      >
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+                          gap: '16px',
+                          alignContent: 'start'
+                        }}>
+                          {Array.from({ length: selectedDocument.numPages || 0 }, (_, index) => (
+                            <div
+                              key={index}
+                              style={{
+                                position: 'relative',
+                                border: currentPage === index + 1 ? '3px solid #667eea' : '2px solid #e5e7eb',
+                                borderRadius: '8px',
+                                overflow: 'hidden',
+                                backgroundColor: 'white',
+                                boxShadow: currentPage === index + 1 ? '0 4px 12px rgba(102, 126, 234, 0.3)' : '0 2px 4px rgba(0,0,0,0.1)',
+                                transition: 'all 0.2s',
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => setCurrentPage(index + 1)}
+                              onMouseEnter={(e) => {
+                                if (currentPage !== index + 1) {
+                                  e.currentTarget.style.borderColor = '#667eea';
+                                  e.currentTarget.style.transform = 'translateY(-2px)';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (currentPage !== index + 1) {
+                                  e.currentTarget.style.borderColor = '#e5e7eb';
+                                  e.currentTarget.style.transform = 'translateY(0)';
+                                }
+                              }}
+                            >
+                              {/* PDFページサムネイル */}
+                              <div style={{
+                                aspectRatio: '3/4',
+                                backgroundColor: '#f3f4f6',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                overflow: 'hidden'
+                              }}>
+                                <Page
+                                  pageNumber={index + 1}
+                                  width={150}
+                                  renderTextLayer={false}
+                                  renderAnnotationLayer={false}
+                                />
+                              </div>
+
+                              {/* ページ番号 */}
+                              <div style={{
+                                padding: '8px',
+                                textAlign: 'center',
+                                fontSize: '13px',
+                                fontWeight: '600',
+                                color: currentPage === index + 1 ? '#667eea' : '#374151',
+                                backgroundColor: currentPage === index + 1 ? '#f3f4f6' : 'white'
+                              }}>
+                                {index + 1}ページ
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </Document>
+                    </div>
+                  )}
+
+                  {/* テキストドキュメントのページ一覧 */}
+                  {showPageThumbnails && !(selectedDocument.pdfUrl || selectedDocument.originalFile) && (
+                    <div style={{
+                      height: '520px',
+                      borderTop: '2px solid #e5e7eb',
+                      backgroundColor: '#f9fafb',
+                      overflowY: 'auto',
+                      padding: '16px',
+                      boxSizing: 'border-box',
                       flexShrink: 0
                     }}>
                       <div style={{
                         display: 'grid',
                         gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
-                        gap: '16px'
+                        gap: '16px',
+                        alignContent: 'start'
                       }}>
                         {selectedDocument.pages.map((page, index) => (
                           <div
@@ -3844,41 +3970,6 @@ const DocumentLibrary = () => {
                 height: '100%',
                 overflowY: 'auto'
               }}>
-                {/* ヘッダーエリア：パンくずリスト */}
-                <div style={{
-                  padding: '16px 40px',
-                  borderBottom: '1px solid #e5e7eb',
-                  backgroundColor: 'white',
-                  position: 'relative',
-                  zIndex: 10
-                }}>
-                  {/* パンくずナビゲーション */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '8px 16px',
-                    backgroundColor: 'rgba(102, 126, 234, 0.05)',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(102, 126, 234, 0.2)'
-                  }}>
-                    <button
-                      style={{
-                        color: '#1a202c',
-                        fontWeight: '600',
-                        fontSize: '14px',
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'default',
-                        padding: '4px 8px',
-                        borderRadius: '6px'
-                      }}
-                    >
-                      ライブラリ
-                    </button>
-                  </div>
-                </div>
-
                 {/* コンテンツエリア */}
                 <div style={{ padding: '40px' }}>
                   <div style={{
