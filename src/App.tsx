@@ -1,4 +1,4 @@
-import DocumentLibrary from './document-library.jsx'
+import DocumentLibrary from './document-library.tsx'
 import './App.css'
 
 function App() {

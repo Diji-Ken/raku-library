@@ -1,8 +1,12 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { ChevronLeft, ChevronRight, ChevronDown, Folder, FolderOpen, File, Image, FileText, Video, X, Search, Upload, Download, Book, Plus, FolderPlus, Trash2, Printer } from 'lucide-react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
+import type { LibraryData, DocumentNode, FolderNode, CabinetNode, TreeNode, Breadcrumb, DeleteTarget, DragState } from './types';
+import BookshelfView from './components/BookshelfView';
+import SpreadView from './components/SpreadView';
+import FolderListView from './components/FolderListView';
 // react-pdf の Annotation/Text レイヤーは無効化しているため、CSSのインポートは不要です。
 // （renderTextLayer={false}、renderAnnotationLayer={false}）
 
@@ -15,9 +19,22 @@ pdfjs.GlobalWorkerOptions.workerSrc = new URL(
 // スタイル定義 - 楽々ライブラリ風デザイン
 const styles = `
   .library-container {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%);
     min-height: 100vh;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+    position: relative;
+  }
+
+  .library-container::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 30vh;
+    background: linear-gradient(180deg, rgba(210, 210, 210, 0.1) 0%, transparent 100%);
+    pointer-events: none;
+    z-index: 0;
   }
 
   .library-header {
@@ -27,6 +44,8 @@ const styles = `
     padding: 20px 30px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.08);
     border-bottom: 1px solid rgba(0,0,0,0.05);
+    position: relative;
+    z-index: 10;
   }
   
   .library-title {
@@ -43,35 +62,87 @@ const styles = `
     display: flex;
     height: calc(100vh - 80px);
     gap: 0;
+    position: relative;
+    z-index: 1;
   }
 
   .sidebar {
-    width: 320px;
-    background: rgba(255, 255, 255, 0.95);
+    width: 300px;
+    background: rgba(255, 255, 255, 0.98);
     backdrop-filter: blur(10px);
-    border-right: 1px solid rgba(0,0,0,0.05);
-    box-shadow: 4px 0 20px rgba(0,0,0,0.08);
+    border-right: 1px solid rgba(0,0,0,0.08);
+    box-shadow: 2px 0 12px rgba(0,0,0,0.05);
     overflow-y: auto;
+    position: relative;
+    z-index: 2;
+    transition: transform 0.3s ease, width 0.3s ease;
+  }
+
+  .sidebar.closed {
+    transform: translateX(-100%);
+    width: 0;
+    overflow: hidden;
+  }
+
+  .sidebar-toggle {
+    position: absolute;
+    right: 16px;
+    top: 24px;
+    background: transparent;
+    border: none;
+    padding: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 10;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sidebar-toggle:hover {
+    background: rgba(102, 126, 234, 0.1);
+  }
+
+  .sidebar-toggle-closed {
+    position: fixed;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(255, 255, 255, 0.98);
+    border: 2px solid #667eea;
+    border-left: none;
+    border-radius: 0 8px 8px 0;
+    padding: 12px 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    z-index: 100;
+    box-shadow: 2px 0 12px rgba(102, 126, 234, 0.2);
+  }
+
+  .sidebar-toggle-closed:hover {
+    background: #667eea;
+    color: white;
   }
 
   .sidebar-header {
     background: transparent;
     color: #1a202c;
-    padding: 20px;
-    border-bottom: 1px solid rgba(0,0,0,0.05);
+    padding: 24px 20px;
+    border-bottom: 1px solid rgba(0,0,0,0.08);
   }
   
   .search-container {
     position: relative;
-    margin-bottom: 15px;
+    margin-bottom: 12px;
   }
-  
+
   .search-input {
     width: 100%;
-    padding: 12px 40px 12px 16px;
-    border: 2px solid rgba(0,0,0,0.08);
-    border-radius: 12px;
-    font-size: 14px;
+    padding: 10px 40px 10px 14px;
+    border: 1.5px solid rgba(0,0,0,0.1);
+    border-radius: 10px;
+    font-size: 13px;
     background: white;
     transition: all 0.3s ease;
   }
@@ -82,43 +153,49 @@ const styles = `
     box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
   }
 
+  .search-input::placeholder {
+    color: #9ca3af;
+    font-size: 13px;
+  }
+
   .search-icon {
     position: absolute;
-    right: 15px;
+    right: 12px;
     top: 50%;
     transform: translateY(-50%);
-    color: #a0aec0;
+    color: #9ca3af;
   }
   
   .cabinet {
-    margin: 10px;
+    margin: 8px 12px;
     background: white;
-    border-radius: 12px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-    border: 1px solid rgba(0,0,0,0.05);
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    border: 1px solid rgba(0,0,0,0.06);
     overflow: hidden;
   }
 
   .cabinet-header {
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
-    padding: 14px 16px;
+    padding: 12px 14px;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 10px;
-    font-weight: 700;
+    gap: 8px;
+    font-weight: 600;
+    font-size: 14px;
     transition: all 0.3s ease;
   }
 
   .cabinet-header:hover {
-    background: linear-gradient(135deg, #5568d3 0%, #6a3f8f 100%);
+    background: linear-gradient(135deg, #7b8ff0 0%, #8b5bb0 100%);
   }
 
   .folder {
-    margin: 8px 12px;
+    margin: 6px 10px;
     background: white;
-    border-radius: 10px;
+    border-radius: 8px;
     border: 1px solid rgba(0,0,0,0.08);
     overflow: hidden;
     transition: all 0.3s ease;
@@ -131,26 +208,28 @@ const styles = `
   .folder-header {
     background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
     color: white;
-    padding: 12px 14px;
+    padding: 11px 14px;
     cursor: pointer;
     display: flex;
     align-items: center;
     gap: 8px;
     font-weight: 600;
+    font-size: 13px;
     transition: all 0.3s ease;
   }
 
   .folder-header:hover {
     background: linear-gradient(135deg, #e082ea 0%, #e4465b 100%);
   }
-  
+
   .document-item {
-    padding: 10px 16px;
-    margin: 2px 8px;
+    padding: 9px 14px;
+    margin: 2px 6px;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 8px;
+    font-size: 13px;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     border-radius: 8px;
     background: transparent;
@@ -176,8 +255,7 @@ const styles = `
   
   .content-area {
     flex: 1;
-    background: rgba(255, 255, 255, 0.4);
-    backdrop-filter: blur(10px);
+    background: transparent;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -333,7 +411,7 @@ const styles = `
     font-weight: bold;
     font-size: 16px;
     margin-bottom: 8px;
-    color: #2c3e50;
+    color: #1a202c;
     margin-left: 15px;
   }
   
@@ -368,13 +446,13 @@ const styles = `
   }
   
   .modal-header {
-    background: linear-gradient(90deg, #2c3e50 0%, #34495e 100%);
+    background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
     color: white;
     padding: 15px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    border-bottom: 2px solid #3498db;
+    border-bottom: 2px solid #667eea;
   }
   
   .modal-title {
@@ -405,7 +483,7 @@ const styles = `
     font-size: 16px;
     line-height: 1.6;
     white-space: pre-wrap;
-    color: #2c3e50;
+    color: #1a202c;
   }
   
   .page-navigation {
@@ -450,7 +528,7 @@ const styles = `
     padding: 8px 16px;
     border-radius: 20px;
     font-weight: bold;
-    color: #2c3e50;
+    color: #1a202c;
     box-shadow: inset 2px 2px 5px rgba(0,0,0,0.1);
     border: 1px solid #dee2e6;
   }
@@ -482,10 +560,550 @@ const styles = `
       font-size: 14px;
     }
   }
+
+  /* 本棚UI用スタイル */
+  .bookshelf-container {
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    background: transparent;
+    overflow-y: hidden;
+    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* 本棚全体にグラデーション背景 */
+  .bookshelf-container::before {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxkZWZzPjxsaW5lYXJHcmFkaWVudCBpZD0iZyIgeDE9IjAlIiB5MT0iMCUiIHgyPSIwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiNmOGY5ZmEiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiNlOWVjZWYiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2cpIi8+PC9zdmc+) center no-repeat;
+    background-size: cover;
+    box-shadow: 0px -200px 200px 0px rgba(210, 210, 210, 0.3) inset;
+    top: 0;
+    left: 0;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .bookshelf-header {
+    padding: 32px 80px 24px;
+    text-align: center;
+    width: 100%;
+    position: relative;
+    z-index: 1;
+  }
+
+  .bookshelf-title {
+    font-size: 36px;
+    font-weight: 700;
+    color: #1a202c;
+    margin: 0;
+    text-shadow: none;
+    letter-spacing: 0.5px;
+  }
+
+  .bookshelf-count {
+    font-size: 16px;
+    color: #64748b;
+    margin: 0;
+    font-weight: 500;
+    text-shadow: none;
+  }
+
+  .bookshelf-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 100px));
+    gap: 20px;
+    width: 100%;
+    max-width: 1400px;
+    justify-content: center;
+    padding-bottom: 60px;
+  }
+
+  /* 本棚スタイル */
+  .bookshelf-shelves {
+    display: flex;
+    flex-direction: column;
+    gap: 60px;
+    width: 100%;
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 40px 60px;
+    position: relative;
+  }
+
+  /* 本棚背景にグラデーション効果 */
+  .bookshelf-shelves::before {
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    box-shadow: 0px -200px 200px 0px rgba(210, 210, 210, 0.3) inset;
+    top: 0;
+    left: 0;
+    z-index: -1;
+    pointer-events: none;
+  }
+
+  .shelf-row {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+  }
+
+  .shelf-books {
+    display: flex;
+    gap: 20px;
+    justify-content: flex-start;
+    align-items: flex-end;
+    padding: 20px 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(102, 126, 234, 0.3) transparent;
+  }
+
+  .shelf-books::-webkit-scrollbar {
+    height: 8px;
+  }
+
+  .shelf-books::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .shelf-books::-webkit-scrollbar-thumb {
+    background: rgba(102, 126, 234, 0.3);
+    border-radius: 4px;
+  }
+
+  .shelf-books::-webkit-scrollbar-thumb:hover {
+    background: rgba(102, 126, 234, 0.5);
+  }
+
+  .shelf-board {
+    width: 100%;
+    height: 24px;
+    background: linear-gradient(
+      to bottom,
+      #8b6f47 0%,
+      #6d5638 50%,
+      #5a462d 100%
+    );
+    border-radius: 4px;
+    box-shadow:
+      0 4px 8px rgba(0, 0, 0, 0.3),
+      0 2px 4px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.3);
+    position: relative;
+    margin-top: -2px;
+  }
+
+  .shelf-board::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 2px,
+      rgba(0, 0, 0, 0.05) 2px,
+      rgba(0, 0, 0, 0.05) 4px
+    );
+    border-radius: 4px;
+  }
+
+  .bookshelf-empty {
+    text-align: center;
+    padding: 80px 20px;
+    color: #4a5568;
+  }
+
+  .bookshelf-empty p {
+    font-size: 20px;
+    margin: 0 0 16px 0;
+    font-weight: 500;
+    text-shadow: none;
+  }
+
+  .bookshelf-empty-hint {
+    font-size: 16px;
+    color: #718096;
+    text-shadow: none;
+  }
+
+  /* フォルダグリッド - 本棚スタイル */
+  .folder-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 220px));
+    gap: 40px;
+    width: 100%;
+    max-width: 1400px;
+    justify-content: center;
+    padding-bottom: 60px;
+  }
+
+  /* フォルダカード - 本の背表紙スタイル */
+  .folder-card {
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 40px 25px;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.05);
+    position: relative;
+    width: 220px;
+    height: 360px;
+    display: inline-block;
+    color: #474747;
+    overflow: visible;
+  }
+
+  .folder-card:hover {
+    transform: scale(1.1);
+    box-shadow: 0px 0px 40px rgba(69, 85, 81, 0.3);
+  }
+
+  .folder-icon {
+    margin-bottom: 30px;
+    transition: all 0.3s ease;
+  }
+
+  .folder-icon svg {
+    width: 56px;
+    height: 56px;
+    color: #667eea;
+  }
+
+  .folder-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    gap: 16px;
+    width: 100%;
+    padding: 0 12px;
+  }
+
+  .folder-title {
+    font-size: 18px;
+    font-weight: 700;
+    color: #474747;
+    line-height: 1.5;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    word-break: break-word;
+  }
+
+  .folder-divider {
+    width: 80px;
+    height: 2px;
+    background: #d5d5d5;
+    border-radius: 2px;
+  }
+
+  .folder-count {
+    font-size: 14px;
+    color: #949494;
+    font-weight: 600;
+    opacity: 0.9;
+  }
+
+  /* 本のカード - 本の背表紙スタイル */
+  .book-card {
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 30px 20px;
+    cursor: pointer;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.05);
+    position: relative;
+    width: auto;
+    min-width: 80px;
+    min-height: 280px;
+    max-width: fit-content;
+    height: auto;
+    display: inline-block;
+    color: #474747;
+    overflow: visible;
+  }
+
+  .book-card:hover {
+    transform: scale(1.05);
+    box-shadow: 0px 0px 40px rgba(69, 85, 81, 0.3);
+  }
+
+  .book-title-vertical {
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    margin: 0 auto;
+    font-size: 14px;
+    letter-spacing: 0.5em;
+    line-height: 1.8em;
+    font-weight: 500;
+    font-family: "Noto Sans JP", -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #474747;
+  }
+
+  .book-spine-bottom {
+    text-align: center;
+    padding-top: 24px;
+    border-top: 1px dashed #d5d5d5;
+    margin-top: 24px;
+    line-height: 1.6em;
+    font-size: 11px;
+    color: #949494;
+    letter-spacing: 1px;
+    line-height: 1.4em;
+  }
+
+  /* キャビネット内のフォルダセクション */
+  .cabinet-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+    width: 100%;
+    padding: 20px 40px;
+  }
+
+  .folder-section {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+  }
+
+  .folder-section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(210, 210, 210, 0.4);
+  }
+
+  .folder-section-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1a202c;
+    margin: 0;
+    text-shadow: none;
+  }
+
+  .folder-section-count {
+    font-size: 18px;
+    font-weight: 600;
+    color: #4a5568;
+    text-shadow: none;
+  }
+
+  .folder-section-empty {
+    padding: 40px;
+    text-align: center;
+    color: #718096;
+    font-size: 16px;
+    font-style: italic;
+  }
+
+  .folder-shelves {
+    display: flex;
+    flex-direction: column;
+    gap: 40px;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0 80px 0;
+    position: relative;
+    z-index: 1;
+    width: 100%;
+  }
+
+  /* 見開き表示 */
+  .spread-viewer {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    background: transparent;
+    height: 100%;
+    min-height: 100%;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .page-container {
+    display: flex;
+    gap: 0;
+    background: white;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    border-radius: 4px;
+    position: relative;
+    max-width: 95%;
+  }
+
+  .page {
+    background: white;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+  }
+
+  .left-page {
+    border-top-left-radius: 4px;
+    border-bottom-left-radius: 4px;
+  }
+
+  .right-page {
+    border-top-right-radius: 4px;
+    border-bottom-right-radius: 4px;
+  }
+
+  /* 本の綴じ目 */
+  .book-binding {
+    width: 4px;
+    background: linear-gradient(
+      to right,
+      rgba(0, 0, 0, 0.2),
+      rgba(0, 0, 0, 0.1),
+      rgba(0, 0, 0, 0.2)
+    );
+    box-shadow: inset 0 0 8px rgba(0, 0, 0, 0.3);
+    z-index: 10;
+    position: relative;
+  }
+
+  /* テキストコンテンツ用 */
+  .text-page {
+    padding: 40px;
+    font-size: 16px;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    width: 450px;
+    min-height: 600px;
+    max-height: 70vh;
+    overflow-y: auto;
+  }
+
+  /* ページコントロール */
+  .page-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    margin-top: 20px;
+    flex-shrink: 0;
+  }
+
+  .page-nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    background: rgba(255, 255, 255, 0.95);
+    border: none;
+    border-radius: 8px;
+    color: #667eea;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  }
+
+  .page-nav-btn:hover:not(:disabled) {
+    background: white;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  .page-nav-btn:active:not(:disabled) {
+    transform: translateY(0);
+  }
+
+  .page-nav-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+
+  .page-info {
+    padding: 8px 16px;
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 8px;
+    color: #1a202c;
+    font-size: 14px;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  /* react-pageflip用のスタイル */
+  .flipbook-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    max-width: 100%;
+    max-height: calc(100vh - 180px);
+    flex: 1;
+    perspective: 1500px;
+    overflow: hidden;
+  }
+
+  .flip-book {
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  }
+
+  .page-wrapper {
+    background: white;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .page-content {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+  }
+
+  .page-content canvas {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+  }
+
+  .text-page {
+    width: 100%;
+    height: 100%;
+    padding: 40px;
+    overflow: auto;
+    font-size: 16px;
+    line-height: 1.8;
+    color: #1a202c;
+  }
 `;
 
 // モックデータ - 楽々ライブラリ風の階層構造
-const mockData = {
+const mockData: LibraryData = {
   name: 'マイライブラリ',
   children: [
     {
@@ -521,6 +1139,106 @@ const mockData = {
                 { type: 'text', content: 'TypeScript基礎\n\n目次\n1. TypeScriptとは\n2. 型システム\n3. インターフェース\n4. ジェネリクス\n5. デコレータ\n\nTypeScriptは、JavaScriptのスーパーセットです。' },
                 { type: 'text', content: '1. TypeScriptとは\n\nTypeScriptは、JavaScriptに静的型付けを追加した言語です。Microsoftによって開発されました。\n\nコンパイル時に型チェックを行うことで、バグを事前に発見できます。' },
                 { type: 'text', content: '2. 型システム\n\nTypeScriptの型システムは非常に強力です。\n\n基本型:\n・string\n・number\n・boolean\n・array\n・tuple\n・enum\n・any\n・void' }
+              ]
+            },
+            {
+              id: 'd2-1',
+              name: 'JavaScript応用',
+              type: 'document',
+              color: 'yellow',
+              pages: [
+                { type: 'text', content: 'JavaScript応用\n\n第1章：非同期処理\n\nPromise、async/awaitを使った非同期プログラミングをマスターしましょう。' },
+                { type: 'text', content: '第2章：モジュールシステム\n\nES Modulesを使ったコードの整理と再利用について学びます。' }
+              ]
+            },
+            {
+              id: 'd2-2',
+              name: 'Python入門',
+              type: 'document',
+              color: 'green',
+              pages: [
+                { type: 'text', content: 'Python入門\n\nPythonは読みやすく、書きやすいプログラミング言語です。\n\nデータ分析、機械学習、Web開発など幅広い分野で使用されています。' },
+                { type: 'text', content: '基本文法\n\n変数の宣言、制御構文、関数定義など、Pythonの基本を学びます。' }
+              ]
+            },
+            {
+              id: 'd2-3',
+              name: 'Goプログラミング',
+              type: 'document',
+              color: 'blue',
+              pages: [
+                { type: 'text', content: 'Goプログラミング\n\nGoは、Googleが開発した高速でシンプルなプログラミング言語です。\n\n並行処理が得意で、サーバーサイド開発に最適です。' },
+                { type: 'text', content: 'Goroutineとチャネル\n\nGoの強力な並行処理機能について学びます。' }
+              ]
+            },
+            {
+              id: 'd2-4',
+              name: 'Rustで学ぶシステムプログラミング',
+              type: 'document',
+              color: 'red',
+              pages: [
+                { type: 'text', content: 'Rustで学ぶシステムプログラミング\n\nRustは、安全性とパフォーマンスを両立したシステムプログラミング言語です。\n\n所有権システムにより、メモリ安全性を保証します。' },
+                { type: 'text', content: '所有権とライフタイム\n\nRustの最も重要な概念である所有権について深く学びます。' }
+              ]
+            },
+            {
+              id: 'd2-5',
+              name: 'Webパフォーマンス最適化',
+              type: 'document',
+              color: 'purple',
+              pages: [
+                { type: 'text', content: 'Webパフォーマンス最適化\n\nWebサイトの読み込み速度を改善し、ユーザー体験を向上させる技術を学びます。\n\nCore Web Vitals、画像最適化、コード分割など。' },
+                { type: 'text', content: 'パフォーマンス計測\n\nLighthouse、WebPageTestなどのツールを使った計測方法を紹介します。' }
+              ]
+            },
+            {
+              id: 'd2-6',
+              name: 'データ構造とアルゴリズム',
+              type: 'document',
+              color: 'yellow',
+              pages: [
+                { type: 'text', content: 'データ構造とアルゴリズム\n\n効率的なプログラムを書くための基礎知識です。\n\n配列、リスト、木構造、グラフ、ソートアルゴリズムなど。' },
+                { type: 'text', content: '計算量解析\n\nBig O記法を使った計算量の評価方法を学びます。' }
+              ]
+            },
+            {
+              id: 'd2-7',
+              name: '関数型プログラミング入門',
+              type: 'document',
+              color: 'green',
+              pages: [
+                { type: 'text', content: '関数型プログラミング入門\n\n副作用のない純粋関数、イミュータブルなデータ構造など、関数型プログラミングの考え方を学びます。' },
+                { type: 'text', content: '高階関数とクロージャ\n\nmap、filter、reduceなどの高階関数の使い方をマスターします。' }
+              ]
+            },
+            {
+              id: 'd2-8',
+              name: 'テスト駆動開発実践',
+              type: 'document',
+              color: 'blue',
+              pages: [
+                { type: 'text', content: 'テスト駆動開発実践\n\nTDD（Test-Driven Development）は、テストを先に書いてからコードを実装する開発手法です。\n\nRed-Green-Refactorのサイクル。' },
+                { type: 'text', content: 'ユニットテストの書き方\n\nJest、Mocha、Pytestなど、各言語のテストフレームワークを紹介します。' }
+              ]
+            },
+            {
+              id: 'd2-9',
+              name: 'クリーンコード',
+              type: 'document',
+              color: 'red',
+              pages: [
+                { type: 'text', content: 'クリーンコード\n\n読みやすく、保守しやすいコードを書くための原則とテクニック。\n\n命名規則、関数の分割、コメントの書き方など。' },
+                { type: 'text', content: 'リファクタリング\n\n既存のコードを改善するための手法を学びます。' }
+              ]
+            },
+            {
+              id: 'd2-10',
+              name: 'デザインパターン',
+              type: 'document',
+              color: 'purple',
+              pages: [
+                { type: 'text', content: 'デザインパターン\n\nソフトウェア設計における典型的な問題に対する再利用可能な解決策。\n\nGoFの23パターンを中心に学びます。' },
+                { type: 'text', content: '主要パターン\n\nSingleton、Factory、Observer、Strategy、Decoratorなど、よく使われるパターンを紹介します。' }
               ]
             }
           ]
@@ -623,35 +1341,43 @@ const mockData = {
 };
 
 const DocumentLibrary = () => {
-  const [treeData, setTreeData] = useState(mockData);
-  const [selectedDocument, setSelectedDocument] = useState(null);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortOrder, setSortOrder] = useState('name-asc'); // 'name-asc', 'name-desc', 'date-asc', 'date-desc'
-  const [currentFolder, setCurrentFolder] = useState(null);
-  const [showUploadModal, setShowUploadModal] = useState(false);
-  const [showNewFolderModal, setShowNewFolderModal] = useState(false);
-  const [newFolderName, setNewFolderName] = useState('');
-  const [selectedParentForNewFolder, setSelectedParentForNewFolder] = useState(null); // 新フォルダの親を選択
-  const [showNewCabinetModal, setShowNewCabinetModal] = useState(false);
-  const [newCabinetName, setNewCabinetName] = useState('');
-  const [uploadFiles, setUploadFiles] = useState([]);
-  const [selectedUploadFolder, setSelectedUploadFolder] = useState(null); // アップロード先フォルダ
-  const [filteredDocuments, setFilteredDocuments] = useState([]);
-  const [showFilePickerModal, setShowFilePickerModal] = useState(false);
-  const [pdfScale] = useState(1.2);
-  const [isDraggingFile, setIsDraggingFile] = useState(false); // ドラッグ&ドロップ状態
+  const [treeData, setTreeData] = useState<LibraryData>(mockData);
+  const [selectedDocument, setSelectedDocument] = useState<DocumentNode | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(0);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [folderSearchQuery, setFolderSearchQuery] = useState<string>(''); // フォルダ検索用
+  const [sortOrder, setSortOrder] = useState<string>('name-asc'); // 'name-asc', 'name-desc', 'date-asc', 'date-desc'
+  const [currentCabinet, setCurrentCabinet] = useState<TreeNode | null>(null);
+  const [currentFolder, setCurrentFolder] = useState<TreeNode | null>(null);
+  const [showUploadModal, setShowUploadModal] = useState<boolean>(false);
+  const [showNewFolderModal, setShowNewFolderModal] = useState<boolean>(false);
+  const [newFolderName, setNewFolderName] = useState<string>('');
+  const [selectedParentForNewFolder, setSelectedParentForNewFolder] = useState<TreeNode | null>(null); // 新フォルダの親を選択
+  const [showNewCabinetModal, setShowNewCabinetModal] = useState<boolean>(false);
+  const [newCabinetName, setNewCabinetName] = useState<string>('');
+  const [uploadFiles, setUploadFiles] = useState<File[]>([]);
+  const [selectedUploadFolder, setSelectedUploadFolder] = useState<TreeNode | null>(null); // アップロード先フォルダ
+  const [filteredDocuments, setFilteredDocuments] = useState<DocumentNode[]>([]);
+  const [showFilePickerModal, setShowFilePickerModal] = useState<boolean>(false);
+  const [pdfScale] = useState<number>(1.2);
+  const [isDraggingFile, setIsDraggingFile] = useState<boolean>(false); // ドラッグ&ドロップ状態
+
+  // 本棚UI用の状態
+  const [viewMode, setViewMode] = useState<'bookshelf' | 'spread' | 'single'>('bookshelf'); // 表示モード
+  const [zoom, setZoom] = useState<number>(100); // ズームレベル（%）
+  const [rotation, setRotation] = useState<number>(0); // 回転角度（0, 90, 180, 270）
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true); // サイドバーの開閉状態
 
   // 削除確認モーダルの状態
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState(null); // { type: 'folder' | 'document', id: string, name: string }
+  const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null); // { type: 'folder' | 'document', id: string, name: string }
 
   // ナビゲーション用の状態
-  const [selectedParentFolder, setSelectedParentFolder] = useState(null);
-  const [breadcrumbs, setBreadcrumbs] = useState([{ name: 'すべてのドキュメント', id: null }]);
+  const [selectedParentFolder, setSelectedParentFolder] = useState<TreeNode | null>(null);
+  const [breadcrumbs, setBreadcrumbs] = useState<Breadcrumb[]>([{ name: 'すべてのドキュメント', id: null }]);
 
   // ページめくりの状態管理
-  const [dragState, setDragState] = useState({
+  const [dragState, setDragState] = useState<DragState>({
     isDragging: false,
     startX: 0,
     currentX: 0,
@@ -661,23 +1387,23 @@ const DocumentLibrary = () => {
     lastTime: 0
   });
 
-  const viewerRef = useRef(null);
-  const fileInputRef = useRef(null);
+  const viewerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ツリーの展開/折りたたみ
-  const toggleNode = (nodeId, nodes) => {
+  const toggleNode = <T extends TreeNode>(nodeId: string, nodes: T[]): T[] => {
     return nodes.map(node => {
-      if (node.id === nodeId) {
-        return { ...node, expanded: !node.expanded };
+      if (node.id === nodeId && node.type !== 'document') {
+        return { ...node, expanded: !node.expanded } as T;
       }
-      if (node.children) {
-        return { ...node, children: toggleNode(nodeId, node.children) };
+      if ('children' in node && node.children) {
+        return { ...node, children: toggleNode(nodeId, node.children as TreeNode[]) } as T;
       }
       return node;
-    });
+    }) as T[];
   };
 
-  const handleToggle = (nodeId) => {
+  const handleToggle = (nodeId: string) => {
     setTreeData(prev => ({
       ...prev,
       children: toggleNode(nodeId, prev.children)
@@ -685,24 +1411,24 @@ const DocumentLibrary = () => {
   };
 
   // 現在選択されているフォルダの全ドキュメントを取得
-  const getAllDocuments = (nodes) => {
-    let docs = [];
+  const getAllDocuments = (nodes: TreeNode[]): DocumentNode[] => {
+    let docs: DocumentNode[] = [];
     nodes.forEach(node => {
       if (node.type === 'document') {
         docs.push(node);
-      } else if (node.children) {
-        docs = [...docs, ...getAllDocuments(node.children)];
+      } else if ('children' in node && node.children) {
+        docs = [...docs, ...getAllDocuments(node.children as TreeNode[])];
       }
     });
     return docs;
   };
 
   // ノードIDから現在ツリー内の最新ノードを取得
-  const findNodeById = (nodes, nodeId) => {
+  const findNodeById = (nodes: TreeNode[], nodeId: string): TreeNode | null => {
     for (const node of nodes) {
       if (node.id === nodeId) return node;
-      if (node.children) {
-        const found = findNodeById(node.children, nodeId);
+      if ('children' in node && node.children) {
+        const found = findNodeById(node.children as TreeNode[], nodeId);
         if (found) return found;
       }
     }
@@ -1576,7 +2302,7 @@ const DocumentLibrary = () => {
         .replace(/\*(.*?)\*/gim, '<em>$1</em>')
         .replace(/\_(.*?)\_/gim, '<em>$1</em>')
         // リンク
-        .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank" style="color: #6366f1; text-decoration: underline;">$1</a>')
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/gim, '<a href="$2" target="_blank" style="color: #5dade2; text-decoration: underline;">$1</a>')
         // コードブロック
         .replace(/```([^`]+)```/gim, '<pre style="background-color: #f3f4f6; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 12px 0;"><code>$1</code></pre>')
         .replace(/`([^`]+)`/gim, '<code style="background-color: #f3f4f6; padding: 2px 6px; border-radius: 4px; font-family: monospace;">$1</code>')
@@ -1922,6 +2648,36 @@ const DocumentLibrary = () => {
     setShowFilePickerModal(false);
   };
 
+  // 本棚UI用のハンドラー
+  const handleBookClick = (doc: DocumentNode) => {
+    setSelectedDocument(doc);
+    setCurrentPage(1);
+    setViewMode('spread'); // 見開き表示に切り替え
+  };
+
+  const handleBackToBookshelf = () => {
+    setViewMode('bookshelf');
+    setSelectedDocument(null);
+    setZoom(100);
+    setRotation(0);
+  };
+
+  const handleZoomIn = () => {
+    setZoom(prev => Math.min(prev + 25, 200));
+  };
+
+  const handleZoomOut = () => {
+    setZoom(prev => Math.max(prev - 25, 50));
+  };
+
+  const handleRotate = () => {
+    setRotation(prev => (prev + 90) % 360);
+  };
+
+  const handleToggleViewMode = () => {
+    setViewMode(prev => prev === 'spread' ? 'single' : 'spread');
+  };
+
   // ドキュメントが所属するフォルダを探す関数
   const findDocumentFolder = (documentId) => {
     let result = null;
@@ -1963,18 +2719,11 @@ const DocumentLibrary = () => {
     };
     
     const handleSelect = () => {
-      if (node.type === 'cabinet') {
-        handleParentFolderClick(node);
-      } else if (node.type === 'folder') {
-        // 親フォルダが選択されているかチェック
-        const parentNode = treeData.children.find(parent =>
-          parent.children && parent.children.some(child => child.id === node.id)
-        );
-        if (parentNode) {
-          handleChildFolderClick(node);
-        } else {
-          setCurrentFolder(node);
-        }
+      if (node.type === 'folder') {
+        // フォルダをクリックしたら直接本棚を表示
+        setCurrentFolder(node);
+        setCurrentCabinet(null); // キャビネットはクリア
+        setViewMode('bookshelf');
       }
     };
     
@@ -2100,24 +2849,40 @@ const DocumentLibrary = () => {
     );
   };
 
+  // フォルダ検索用のフィルタリング
+  const filterTreeNodes = (nodes: TreeNode[]): TreeNode[] => {
+    if (!folderSearchQuery.trim()) {
+      return nodes;
+    }
+
+    const query = folderSearchQuery.toLowerCase();
+    return nodes.filter(node => {
+      // フォルダまたはキャビネットの名前で検索
+      return node.name.toLowerCase().includes(query);
+    });
+  };
+
+  const filteredTreeNodes = filterTreeNodes(treeData.children);
+
   return (
     <>
       <style>{styles}</style>
       <div className="library-container">
-        {/* ヘッダー - 改善版 */}
-        <header style={{
-          backgroundColor: 'white',
-          borderBottom: '1px solid #e5e7eb',
-          padding: '16px 32px',
-          position: 'sticky',
-          top: 0,
-          zIndex: 100,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
-        }}>
+        {/* ヘッダー - 常に表示（SpreadView時のみ非表示） */}
+        {viewMode !== 'spread' && (
+          <header style={{
+            backgroundColor: 'white',
+            borderBottom: '1px solid #e5e7eb',
+            padding: '16px 32px',
+            position: 'sticky',
+            top: 0,
+            zIndex: 100,
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+          }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             {/* タイトル */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Book style={{ width: '32px', height: '32px', color: '#6366f1' }} />
+              <Book style={{ width: '32px', height: '32px', color: '#667eea' }} />
               <h1 style={{
                 fontSize: '24px',
                 fontWeight: '700',
@@ -2137,7 +2902,7 @@ const DocumentLibrary = () => {
                   alignItems: 'center',
                   gap: '8px',
                   padding: '10px 20px',
-                  backgroundColor: '#6366f1',
+                  backgroundColor: '#667eea',
                   color: 'white',
                   border: 'none',
                   borderRadius: '8px',
@@ -2145,17 +2910,17 @@ const DocumentLibrary = () => {
                   fontWeight: '600',
                   cursor: 'pointer',
                   transition: 'all 0.2s',
-                  boxShadow: '0 2px 4px rgba(99, 102, 241, 0.2)'
+                  boxShadow: '0 2px 4px rgba(102, 126, 234, 0.2)'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#4f46e5';
+                  e.currentTarget.style.backgroundColor = '#764ba2';
                   e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = '0 4px 8px rgba(99, 102, 241, 0.3)';
+                  e.currentTarget.style.boxShadow = '0 4px 8px rgba(102, 126, 234, 0.3)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#6366f1';
+                  e.currentTarget.style.backgroundColor = '#667eea';
                   e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(99, 102, 241, 0.2)';
+                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(102, 126, 234, 0.2)';
                 }}
               >
                 <Plus style={{ width: '18px', height: '18px' }} />
@@ -2170,8 +2935,8 @@ const DocumentLibrary = () => {
                   gap: '8px',
                   padding: '10px 20px',
                   backgroundColor: 'white',
-                  color: '#6366f1',
-                  border: '2px solid #6366f1',
+                  color: '#667eea',
+                  border: '2px solid #667eea',
                   borderRadius: '8px',
                   fontSize: '14px',
                   fontWeight: '600',
@@ -2282,41 +3047,93 @@ const DocumentLibrary = () => {
             </div>
           </div>
         </header>
+        )}
 
-        <div className="library-main">
-          {/* サイドバー */}
-          <div className="sidebar">
-            <div className="sidebar-header">
-              <div className="search-container">
-                <input
-                  type="text"
-                  placeholder="ドキュメントを検索..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="search-input"
-                />
-                <Search className="search-icon w-4 h-4" />
+        <div className="library-main" style={{
+          height: viewMode === 'spread' ? '100vh' : 'calc(100vh - 80px)'
+        }}>
+          {/* サイドバーが閉じている時の開くボタン */}
+          {viewMode !== 'spread' && !isSidebarOpen && (
+            <button
+              className="sidebar-toggle-closed"
+              onClick={() => setIsSidebarOpen(true)}
+              style={{
+                color: '#667eea'
+              }}
+            >
+              <ChevronRight size={20} />
+            </button>
+          )}
+
+          {/* サイドバー - 常に表示（見開き時のみ非表示） */}
+          {viewMode !== 'spread' && (
+            <div className={`sidebar ${!isSidebarOpen ? 'closed' : ''}`}>
+              <div className="sidebar-header" style={{ position: 'relative' }}>
+                {/* サイドバー内のトグルボタン */}
+                <button
+                  className="sidebar-toggle"
+                  onClick={() => setIsSidebarOpen(false)}
+                  style={{
+                    color: '#667eea'
+                  }}
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <h3 style={{
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                  color: '#4a5568',
+                  marginBottom: '16px',
+                  paddingRight: '40px'
+                }}>ライブラリ</h3>
+                <div className="search-container">
+                  <input
+                    type="text"
+                    placeholder="フォルダを検索..."
+                    value={folderSearchQuery}
+                    onChange={(e) => setFolderSearchQuery(e.target.value)}
+                    className="search-input"
+                  />
+                  <Search className="search-icon w-4 h-4" />
+                </div>
+                <div className="search-container">
+                  <input
+                    type="text"
+                    placeholder="ドキュメントを検索..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="search-input"
+                  />
+                  <Search className="search-icon w-4 h-4" />
+                </div>
               </div>
-              <h3 className="text-sm font-semibold uppercase tracking-wide">ライブラリ</h3>
+
+              <div style={{ padding: '12px 8px' }}>
+                {filteredTreeNodes.length === 0 ? (
+                  <div style={{ padding: '20px 12px', textAlign: 'center', color: '#9ca3af', fontSize: '13px' }}>
+                    フォルダが見つかりません
+                  </div>
+                ) : (
+                  filteredTreeNodes.map(node => (
+                    <TreeNode key={node.id} node={node} />
+                  ))
+                )}
+              </div>
             </div>
-            
-            <div className="p-2">
-              {treeData.children.map(node => (
-                <TreeNode key={node.id} node={node} />
-              ))}
-            </div>
-          </div>
+          )}
 
           {/* メインコンテンツ - 改善版 + ドラッグ&ドロップ対応 */}
           <div
             className="content-area"
             style={{
               borderRadius: '16px',
-              border: isDraggingFile ? '3px dashed #8b5cf6' : '1px solid rgba(255, 255, 255, 0.3)',
-              margin: '0 24px 24px 0',
+              border: (currentCabinet || currentFolder || (selectedDocument && viewMode === 'spread')) ? 'none' : (isDraggingFile ? '3px dashed #8b5cf6' : '1px solid rgba(255, 255, 255, 0.3)'),
+              margin: (currentCabinet || currentFolder || (selectedDocument && viewMode === 'spread')) ? '0' : '0 24px 24px 0',
               overflow: 'hidden',
               position: 'relative',
-              backgroundColor: isDraggingFile ? 'rgba(139, 92, 246, 0.05)' : 'transparent',
+              backgroundColor: (currentCabinet || currentFolder || (selectedDocument && viewMode === 'spread')) ? 'transparent' : (isDraggingFile ? 'rgba(139, 92, 246, 0.05)' : 'transparent'),
               transition: 'all 0.3s ease'
             }}
             onDragOver={handleDragOver}
@@ -2324,7 +3141,168 @@ const DocumentLibrary = () => {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            {/* パンくずリスト */}
+            {/* フォルダ選択後 → 本棚表示 */}
+            {!selectedDocument && currentFolder ? (
+              <BookshelfView
+                folders={[currentFolder]}
+                onBookClick={handleBookClick}
+                currentCabinetName={currentFolder.name}
+                onBackClick={() => {
+                  setCurrentFolder(null);
+                }}
+              />
+            ) : selectedDocument && viewMode === 'spread' ? (
+              /* 見開きビュー専用レンダリング */
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100%',
+                width: '100%',
+                overflow: 'hidden'
+              }}>
+                {/* ツールバー */}
+                <div style={{
+                  padding: '16px 24px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                  backdropFilter: 'blur(10px)',
+                  borderBottom: '1px solid rgba(0,0,0,0.05)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  flexWrap: 'wrap',
+                  flexShrink: 0
+                }}>
+                  <button
+                    onClick={() => {
+                      setSelectedDocument(null);
+                      setViewMode('bookshelf');
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px 16px',
+                      backgroundColor: 'white',
+                      border: '2px solid #667eea',
+                      borderRadius: '8px',
+                      color: '#667eea',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    <ChevronLeft size={18} />
+                    本棚に戻る
+                  </button>
+
+                  <div style={{ flex: 1 }} />
+
+                  <button
+                    onClick={handleZoomOut}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: 'white',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '600'
+                    }}
+                  >
+                    ズームアウト
+                  </button>
+                  <span style={{ fontSize: '14px', fontWeight: '600', color: '#64748b' }}>
+                    {zoom}%
+                  </span>
+                  <button
+                    onClick={handleZoomIn}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: 'white',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '600'
+                    }}
+                  >
+                    ズームイン
+                  </button>
+
+                  <button
+                    onClick={handleRotate}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: 'white',
+                      border: '2px solid #e5e7eb',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '600'
+                    }}
+                  >
+                    回転
+                  </button>
+
+                  <button
+                    onClick={handleDownload}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: '#6366f1',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '600'
+                    }}
+                  >
+                    ダウンロード
+                  </button>
+                </div>
+
+                {/* 見開きビューアー */}
+                <div style={{ flex: 1, overflow: 'auto' }}>
+                  <SpreadView
+                    document={selectedDocument}
+                    currentPage={currentPage}
+                    zoom={zoom}
+                    rotation={rotation}
+                    onPageChange={setCurrentPage}
+                  />
+                </div>
+              </div>
+            ) : !selectedDocument && !currentFolder ? (
+              /* ウェルカム画面 */
+              <div style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                height: '100%',
+                padding: '40px',
+                textAlign: 'center'
+              }}>
+                <Book style={{ width: '120px', height: '120px', color: '#667eea', marginBottom: '32px', opacity: 0.5 }} />
+                <h2 style={{
+                  fontSize: '32px',
+                  fontWeight: '700',
+                  color: '#1a202c',
+                  marginBottom: '16px'
+                }}>楽々ライブラリへようこそ</h2>
+                <p style={{
+                  fontSize: '18px',
+                  color: '#64748b',
+                  maxWidth: '600px',
+                  lineHeight: '1.6'
+                }}>
+                  左のサイドバーからフォルダを選択すると、本棚が表示されます
+                </p>
+              </div>
+            ) : (
+              <>
+            {/* 旧ドキュメントグリッド表示（使用されていない） */}
             <div style={{
               padding: '16px 24px',
               backgroundColor: 'rgba(255, 255, 255, 0.7)',
@@ -2339,7 +3317,7 @@ const DocumentLibrary = () => {
                   <button
                     onClick={() => handleBreadcrumbClick(index)}
                     style={{
-                      color: index === breadcrumbs.length - 1 ? '#6366f1' : '#64748b',
+                      color: index === breadcrumbs.length - 1 ? '#1a202c' : '#64748b',
                       fontWeight: index === breadcrumbs.length - 1 ? '600' : '400',
                       fontSize: '14px',
                       background: 'none',
@@ -2766,12 +3744,15 @@ const DocumentLibrary = () => {
                 })
               )}
             </div>
+            </>
+            )}
           </div>
         </div>
       </div>
 
       {/* ドキュメントビューワー（モーダル） - 改善版 */}
-      {selectedDocument && (
+      {/* 本棚UIを使用していない場合のみ表示 */}
+      {selectedDocument && viewMode !== 'spread' && viewMode !== 'bookshelf' && (
         <div
           style={{
             position: 'fixed',
