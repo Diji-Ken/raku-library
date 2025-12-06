@@ -23,6 +23,7 @@ export interface FolderNode {
   type: 'folder';
   expanded: boolean;
   children: (DocumentNode | FolderNode)[];
+  color?: string; // オプショナル：フォルダの色
 }
 
 export interface CabinetNode {
@@ -31,6 +32,7 @@ export interface CabinetNode {
   type: 'cabinet';
   expanded: boolean;
   children: FolderNode[];
+  color?: string; // オプショナル：キャビネットの色
 }
 
 export interface LibraryData {
