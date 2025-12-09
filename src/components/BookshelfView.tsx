@@ -294,7 +294,11 @@ const BookshelfView: React.FC<BookshelfViewProps> = ({
           <p className="bookshelf-empty-hint">フォルダを作成して始めましょう</p>
         </div>
       ) : (
-        <div className="cabinet-sections">
+        <div className="cabinet-sections" style={{
+          backgroundColor: '#f9fafb',
+          minHeight: 'calc(100vh - 200px)',
+          padding: '40px'
+        }}>
           {folders.map((folder) => {
             const folderDocuments = (folder.children?.filter(child => child.type === 'document') as DocumentNode[]) || [];
 
@@ -313,7 +317,7 @@ const BookshelfView: React.FC<BookshelfViewProps> = ({
                 ) : (
                   <div className="folder-shelves">
                     {folderShelves.map((shelfBooks, shelfIndex) => (
-                      <div key={shelfIndex} className="shelf-row">
+                      <div key={shelfIndex} className="shelf-box">
                         <div className="shelf-books">
                           {shelfBooks.map(doc => (
                             <BookCard

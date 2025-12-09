@@ -9,6 +9,7 @@ interface SpreadViewProps {
   zoom: number;
   rotation: number;
   onPageChange: (page: number) => void;
+  sidebarWidth?: number; // サイドバーの幅（オプション）
 }
 
 const SpreadView: React.FC<SpreadViewProps> = ({
@@ -17,6 +18,7 @@ const SpreadView: React.FC<SpreadViewProps> = ({
   zoom,
   rotation,
   onPageChange,
+  sidebarWidth = 0,
 }) => {
   const [numPages, setNumPages] = useState<number>(document.pages?.length || 0);
   // PDFファイルの場合のみローディング状態を管理
@@ -38,36 +40,61 @@ const SpreadView: React.FC<SpreadViewProps> = ({
 
   useEffect(() => {
     const updatePageSize = () => {
-      // 利用可能な画面サイズを計算
-      // ツールバー(約40px) + ページコントロール(約50px) + 上下余白(40px)
-      const availableHeight = window.innerHeight - 130;
-      const availableWidth = window.innerWidth - 20; // 左右の余白を最小限に
+      // 利用可能な画面サイズを計算（余白を完全に削除）
+      // ページコントロール(約50px)のみ
+      const availableHeight = window.innerHeight - 50;
+      const availableWidth = window.innerWidth - sidebarWidth; // サイドバーの幅を引く
 
       // A4比率（1:1.41）を基準に計算
       const aspectRatio = 1.41;
 
       // 見開きなので幅は2ページ分必要
-      let calcPageWidth = availableWidth / 2;
-      let calcPageHeight = calcPageWidth * aspectRatio;
+      // 中央のborderのみ考慮（2px）
 
-      // 高さが収まらない場合は高さ基準で再計算
-      if (calcPageHeight > availableHeight) {
-        calcPageHeight = availableHeight;
-        calcPageWidth = calcPageHeight / aspectRatio;
+      // 幅基準で計算
+      const widthBasedPageWidth = (availableWidth - 2) / 2;
+      const widthBasedPageHeight = widthBasedPageWidth * aspectRatio;
+
+      // 高さ基準で計算
+      const heightBasedPageHeight = availableHeight;
+      const heightBasedPageWidth = heightBasedPageHeight / aspectRatio;
+
+      // 両方に収まる最大サイズを選択
+      let finalPageWidth: number;
+      let finalPageHeight: number;
+
+      if (widthBasedPageHeight <= availableHeight) {
+        // 幅基準で画面に収まる
+        finalPageWidth = widthBasedPageWidth;
+        finalPageHeight = widthBasedPageHeight;
+      } else {
+        // 高さが超えるので、高さ基準にする
+        finalPageWidth = heightBasedPageWidth;
+        finalPageHeight = heightBasedPageHeight;
       }
 
-      // 最小サイズを保証
-      calcPageWidth = Math.max(300, calcPageWidth);
-      calcPageHeight = Math.max(420, calcPageHeight);
-
-      setPageWidth(Math.floor(calcPageWidth));
-      setPageHeight(Math.floor(calcPageHeight));
+      setPageWidth(Math.floor(finalPageWidth));
+      setPageHeight(Math.floor(finalPageHeight));
     };
 
     updatePageSize();
     window.addEventListener('resize', updatePageSize);
     return () => window.removeEventListener('resize', updatePageSize);
-  }, []);
+  }, [sidebarWidth]);
+
+  // キーボードの左右矢印キーでページめくり
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowLeft') {
+        handlePrevPage();
+      } else if (e.key === 'ArrowRight') {
+        handleNextPage();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [internalPage, isFlipping, totalPages, rightPage]);
 
   const handlePrevPage = () => {
     if (isFlipping || internalPage <= 1) return;
@@ -193,7 +220,7 @@ const SpreadView: React.FC<SpreadViewProps> = ({
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              padding: '10px',
+              padding: '0',
               perspective: '3000px',
               overflow: 'hidden'
             }}>
@@ -210,7 +237,7 @@ const SpreadView: React.FC<SpreadViewProps> = ({
                 <div
                   onClick={handleLeftPageClick}
                   style={{
-                    width: `${pageWidth}px`,
+                    width: `${pageWidth * (zoom / 100)}px`,
                     height: `${pageHeight}px`,
                     backgroundColor: 'white',
                     display: 'flex',
@@ -225,12 +252,13 @@ const SpreadView: React.FC<SpreadViewProps> = ({
                       ? 'rotateY(180deg) translateZ(2px)'
                       : 'rotateY(0deg)',
                     transition: flipDirection !== null ? 'transform 1s cubic-bezier(0.4, 0.0, 0.2, 1)' : 'none',
-                    zIndex: isFlipping && flipDirection === 'prev' ? 10 : 1
+                    zIndex: isFlipping && flipDirection === 'prev' ? 10 : 1,
+                    overflow: 'hidden'
                   }}
                 >
                   <Page
                     pageNumber={leftPage}
-                    width={(pageWidth - 40) * (zoom / 100)}
+                    width={pageWidth * (zoom / 100)}
                     rotate={rotation}
                     renderTextLayer={false}
                     renderAnnotationLayer={false}
@@ -242,7 +270,7 @@ const SpreadView: React.FC<SpreadViewProps> = ({
                   <div
                     onClick={handleRightPageClick}
                     style={{
-                      width: `${pageWidth}px`,
+                      width: `${pageWidth * (zoom / 100)}px`,
                       height: `${pageHeight}px`,
                       backgroundColor: 'white',
                       display: 'flex',
@@ -256,12 +284,13 @@ const SpreadView: React.FC<SpreadViewProps> = ({
                         ? 'rotateY(-180deg) translateZ(2px)'
                         : 'rotateY(0deg)',
                       transition: flipDirection !== null ? 'transform 1s cubic-bezier(0.4, 0.0, 0.2, 1)' : 'none',
-                      zIndex: isFlipping && flipDirection === 'next' ? 10 : 1
+                      zIndex: isFlipping && flipDirection === 'next' ? 10 : 1,
+                      overflow: 'hidden'
                     }}
                   >
                     <Page
                       pageNumber={rightPage}
-                      width={(pageWidth - 40) * (zoom / 100)}
+                      width={pageWidth * (zoom / 100)}
                       rotate={rotation}
                       renderTextLayer={false}
                       renderAnnotationLayer={false}
@@ -358,7 +387,7 @@ const SpreadView: React.FC<SpreadViewProps> = ({
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: '10px',
+        padding: '0',
         perspective: '3000px',
         overflow: 'hidden'
       }}>

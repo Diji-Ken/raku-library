@@ -468,11 +468,32 @@ const styles = `
     pointer-events: none;
   }
 
-  .shelf-row {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+  .shelf-box {
     width: 100%;
+    background: white;
+    border: 3px solid #d1d5db;
+    border-radius: 8px;
+    box-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.08),
+      inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .shelf-box::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.5) 0%,
+      rgba(240, 240, 240, 0.3) 100%
+    );
+    pointer-events: none;
   }
 
   .shelf-books {
@@ -480,9 +501,12 @@ const styles = `
     gap: 12px;
     justify-content: flex-start;
     align-items: flex-end;
-    padding: 16px 0;
+    padding: 24px;
     flex-wrap: wrap;
     width: 100%;
+    min-height: 180px;
+    position: relative;
+    z-index: 1;
   }
 
   .shelf-books::-webkit-scrollbar {
@@ -500,25 +524,6 @@ const styles = `
 
   .shelf-books::-webkit-scrollbar-thumb:hover {
     background: rgba(102, 126, 234, 0.5);
-  }
-
-  .shelf-board {
-    width: 100%;
-    height: 20px;
-    background: linear-gradient(
-      to bottom,
-      #8b6f47 0%,
-      #6d5638 50%,
-      #5a462d 100%
-    );
-    border-radius: 4px;
-    box-shadow:
-      0 4px 8px rgba(0, 0, 0, 0.3),
-      0 2px 4px rgba(0, 0, 0, 0.2),
-      inset 0 1px 0 rgba(255, 255, 255, 0.1),
-      inset 0 -1px 0 rgba(0, 0, 0, 0.3);
-    position: relative;
-    margin-top: -2px;
   }
 
   .bookshelf-empty {
@@ -722,11 +727,11 @@ const styles = `
   .folder-shelves {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 0;
     background: transparent;
     border: none;
     border-radius: 0;
-    padding: 0 40px;
+    padding: 0;
     position: relative;
     z-index: 1;
     width: 100%;
@@ -917,6 +922,7 @@ const mockData: LibraryData = {
           name: 'プログラミング',
           type: 'folder',
           expanded: false,
+          color: 'blue',
           children: [
             {
               id: 'd1',
@@ -1048,6 +1054,7 @@ const mockData: LibraryData = {
           name: 'デザイン',
           type: 'folder',
           expanded: false,
+          color: 'purple',
           children: [
             {
               id: 'd3',
@@ -1084,6 +1091,7 @@ const mockData: LibraryData = {
           name: '2024年度',
           type: 'folder',
           expanded: false,
+          color: 'green',
           children: [
             {
               id: 'd4',
@@ -1132,6 +1140,7 @@ const mockData: LibraryData = {
           name: '経営会議',
           type: 'folder',
           expanded: false,
+          color: 'red',
           children: [
             {
               id: 'd6',
@@ -1179,6 +1188,7 @@ const DocumentLibrary = () => {
   const [showUploadModal, setShowUploadModal] = useState<boolean>(false);
   const [showNewFolderModal, setShowNewFolderModal] = useState<boolean>(false);
   const [newFolderName, setNewFolderName] = useState<string>('');
+  const [newFolderColor, setNewFolderColor] = useState<string>('blue'); // 新フォルダの色
   const [selectedParentForNewFolder, setSelectedParentForNewFolder] = useState<TreeNode | null>(null); // 新フォルダの親を選択
   const [showNewCabinetModal, setShowNewCabinetModal] = useState<boolean>(false);
   const [newCabinetName, setNewCabinetName] = useState<string>('');
@@ -1193,6 +1203,7 @@ const DocumentLibrary = () => {
   const [viewMode, setViewMode] = useState<'bookshelf' | 'spread' | 'single'>('bookshelf'); // 表示モード
   const [zoom, setZoom] = useState<number>(100); // ズームレベル（%）
   const [rotation, setRotation] = useState<number>(0); // 回転角度（0, 90, 180, 270）
+  const [isSpreadSidebarOpen, setIsSpreadSidebarOpen] = useState<boolean>(false); // 見開きビューのサイドバー開閉状態
 
   // 削除確認モーダルの状態
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
@@ -1234,6 +1245,19 @@ const DocumentLibrary = () => {
   // ナビゲーション用の状態
   const [selectedParentFolder, setSelectedParentFolder] = useState<TreeNode | null>(null);
   const [breadcrumbs, setBreadcrumbs] = useState<Breadcrumb[]>([{ name: 'ライブラリ', id: null }]);
+
+  // サイドバー用の状態
+  const [expandedCabinets, setExpandedCabinets] = useState<Set<string>>(new Set());
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+
+  // フォルダの色オプション
+  const folderColorOptions = [
+    { name: '青', value: 'blue', color: '#3b82f6' },
+    { name: '緑', value: 'green', color: '#10b981' },
+    { name: '赤', value: 'red', color: '#ef4444' },
+    { name: '紫', value: 'purple', color: '#8b5cf6' },
+    { name: '黄', value: 'yellow', color: '#f59e0b' },
+  ];
 
   // ページめくりの状態管理
   const [dragState, setDragState] = useState<DragState>({
@@ -2495,12 +2519,14 @@ const DocumentLibrary = () => {
       name: newFolderName,
       type: 'folder',
       expanded: false,
+      color: newFolderColor,
       children: []
     };
 
     addDocumentsToFolder(selectedParentForNewFolder.id, [newFolder]);
 
     setNewFolderName('');
+    setNewFolderColor('blue'); // 色をデフォルトに戻す
     setSelectedParentForNewFolder(null);
     setShowNewFolderModal(false);
   };
@@ -3425,302 +3451,266 @@ const DocumentLibrary = () => {
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
           >
-            {/* フォルダ選択後 → 本棚表示 */}
-            {!selectedDocument && currentFolder ? (
-              <BookshelfView
-                folders={[currentFolder]}
-                onBookClick={handleBookClick}
-                currentCabinetName={currentFolder.name}
-                onBackClick={() => {
-                  setCurrentFolder(null);
-                  if (selectedParentFolder) {
-                    window.history.pushState(null, '', `#/cabinet/${selectedParentFolder.id}`);
-                  }
-                }}
-                breadcrumbs={breadcrumbs}
-                onBreadcrumbClick={(index) => {
-                  if (index === 0) {
-                    // ライブラリルートに戻る
-                    setSelectedParentFolder(null);
-                    setCurrentFolder(null);
-                    setBreadcrumbs([{ name: 'ライブラリ', id: null }]);
-                    window.history.pushState(null, '', '#/');
-                  } else if (index === 1) {
-                    // キャビネット（フォルダ一覧）に戻る
-                    setCurrentFolder(null);
-                    setBreadcrumbs(breadcrumbs.slice(0, 2));
-                    if (selectedParentFolder) {
-                      window.history.pushState(null, '', `#/cabinet/${selectedParentFolder.id}`);
-                    }
-                  }
-                  // index === 2 (現在のページ) の場合は何もしない
-                }}
-                isSelectionMode={isSelectionMode}
-                selectedDocumentIds={selectedDocumentIds}
-                onToggleDocumentSelection={toggleDocumentSelection}
-                onToggleSelectionMode={toggleSelectionMode}
-                onSelectAll={selectAllDocuments}
-                onDeselectAll={deselectAllDocuments}
-                onBulkDelete={bulkDeleteDocuments}
-              />
-            ) : selectedDocument && viewMode === 'spread' ? (
+            {selectedDocument && viewMode === 'spread' ? (
               /* 見開きビュー専用レンダリング */
               <div style={{
                 display: 'flex',
-                flexDirection: 'column',
-                height: '100%',
-                width: '100%'
+                flexDirection: 'row',
+                height: '100vh',
+                width: '100vw',
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                zIndex: 1000,
+                backgroundColor: '#f9fafb'
               }}>
-                {/* ツールバー */}
-                <div style={{
-                  padding: '8px 16px',
-                  backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                  backdropFilter: 'blur(10px)',
-                  borderBottom: '1px solid rgba(0,0,0,0.05)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  flexWrap: 'wrap',
-                  flexShrink: 0
-                }}>
-                  <button
-                    onClick={() => {
-                      setSelectedDocument(null);
-                      setViewMode('bookshelf');
-                      setShowPageThumbnails(false);
-                    }}
-                    style={{
+                {/* サイドバー */}
+                {isSpreadSidebarOpen && (
+                  <div style={{
+                    width: '280px',
+                    flexShrink: 0,
+                    backgroundColor: '#f8f9fa',
+                    borderRight: '2px solid #e5e7eb',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '100vh',
+                    overflowY: 'auto'
+                  }}>
+                    {/* サイドバーヘッダー */}
+                    <div style={{
+                      padding: '20px',
+                      borderBottom: '2px solid #e5e7eb',
                       display: 'flex',
                       alignItems: 'center',
-                      gap: '6px',
-                      padding: '6px 12px',
-                      backgroundColor: 'white',
-                      border: '2px solid #667eea',
-                      borderRadius: '6px',
-                      color: '#667eea',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    <ChevronLeft size={16} />
-                    本棚に戻る
-                  </button>
-
-                  {/* ドキュメントメニューボタン */}
-                  <div style={{ position: 'relative' }}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenMenuId(openMenuId === `doc-${selectedDocument.id}` ? null : `doc-${selectedDocument.id}`);
-                      }}
-                      style={{
-                        padding: '6px 8px',
-                        background: openMenuId === `doc-${selectedDocument.id}` ? '#f3f4f6' : 'white',
-                        border: '2px solid #e5e7eb',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        transition: 'all 0.2s',
-                        color: '#374151'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = '#f3f4f6';
-                        e.currentTarget.style.borderColor = '#667eea';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = openMenuId === `doc-${selectedDocument.id}` ? '#f3f4f6' : 'white';
-                        e.currentTarget.style.borderColor = '#e5e7eb';
-                      }}
-                    >
-                      <MoreVertical style={{ width: '16px', height: '16px' }} />
-                    </button>
-
-                    {/* ドロップダウンメニュー */}
-                    {openMenuId === `doc-${selectedDocument.id}` && (
-                      <div
+                      justifyContent: 'space-between'
+                    }}>
+                      <div>
+                        <h2 style={{
+                          fontSize: '18px',
+                          fontWeight: '700',
+                          color: '#1a202c',
+                          marginBottom: '8px'
+                        }}>ライブラリ</h2>
+                        <p style={{
+                          fontSize: '13px',
+                          color: '#64748b'
+                        }}>{treeData.children.length}個のキャビネット</p>
+                      </div>
+                      {/* サイドバートグルボタン（サイドバー内） */}
+                      <button
+                        onClick={() => setIsSpreadSidebarOpen(false)}
                         style={{
-                          position: 'absolute',
-                          top: '50px',
-                          left: '0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          padding: '8px',
                           backgroundColor: 'white',
-                          borderRadius: '12px',
-                          boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-                          border: '1px solid #e5e7eb',
-                          minWidth: '200px',
-                          zIndex: 99999,
-                          overflow: 'visible'
+                          border: '2px solid #e5e7eb',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          color: '#374151',
+                          transition: 'all 0.2s',
+                          boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f9fafb';
+                          e.currentTarget.style.borderColor = '#667eea';
+                          e.currentTarget.style.transform = 'translateY(-1px)';
+                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'white';
+                          e.currentTarget.style.borderColor = '#e5e7eb';
+                          e.currentTarget.style.transform = 'translateY(0)';
+                          e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
                         }}
                       >
-                        <div style={{ padding: '4px' }}>
-                          {/* 移動オプション */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const currentFolderId = currentFolder?.id || '';
-                              openMoveModal(selectedDocument.id, selectedDocument.name, currentFolderId);
-                            }}
-                            style={{
-                              width: '100%',
-                              padding: '12px 16px',
-                              textAlign: 'left',
-                              border: 'none',
-                              background: 'none',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '12px',
-                              fontSize: '14px',
-                              fontWeight: '500',
-                              color: '#8b5cf6',
-                              borderRadius: '8px',
-                              transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = '#f3e8ff';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = 'transparent';
-                            }}
-                          >
-                            <MoveRight style={{ width: '16px', height: '16px' }} />
-                            <span>移動</span>
-                          </button>
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <line x1="18" y1="6" x2="6" y2="18"></line>
+                          <line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                      </button>
+                    </div>
 
-                          <div style={{
-                            height: '1px',
-                            backgroundColor: '#e5e7eb',
-                            margin: '4px 8px'
-                          }} />
+                    {/* キャビネット・フォルダツリー */}
+                    <div style={{
+                      flex: 1,
+                      overflowY: 'auto',
+                      padding: '12px'
+                    }}>
+                      {filteredCabinets.map((cabinet, index) => {
+                        const folderCount = cabinet.children?.filter(child => child.type === 'folder').length || 0;
+                        const cabinetColors = [
+                          '#667eea', '#f59e0b', '#10b981', '#ef4444',
+                          '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'
+                        ];
+                        const cabinetColor = cabinetColors[index % cabinetColors.length];
 
-                          {/* 削除オプション */}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              confirmDelete('document', selectedDocument.id, selectedDocument.name);
-                            }}
-                            style={{
-                              width: '100%',
-                              padding: '12px 16px',
-                              textAlign: 'left',
-                              border: 'none',
-                              background: 'none',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '12px',
-                              fontSize: '14px',
-                              fontWeight: '500',
-                              color: '#ef4444',
-                              borderRadius: '8px',
-                              transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = '#fee2e2';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = 'transparent';
-                            }}
-                          >
-                            <Trash2 style={{ width: '16px', height: '16px' }} />
-                            <span>削除</span>
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                        const isExpanded = expandedCabinets.has(cabinet.id);
+
+                        return (
+                          <div key={cabinet.id} style={{ marginBottom: '4px' }}>
+                            {/* キャビネット項目 */}
+                            <div
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                padding: '10px 12px',
+                                backgroundColor: isExpanded ? '#e8eaf6' : 'transparent',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                                border: isExpanded ? '1px solid #667eea' : '1px solid transparent'
+                              }}
+                              onClick={() => {
+                                const newExpanded = new Set(expandedCabinets);
+                                if (isExpanded) {
+                                  newExpanded.delete(cabinet.id);
+                                } else {
+                                  newExpanded.add(cabinet.id);
+                                }
+                                setExpandedCabinets(newExpanded);
+                              }}
+                              onMouseEnter={(e) => {
+                                if (!isExpanded) {
+                                  e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                }
+                              }}
+                              onMouseLeave={(e) => {
+                                if (!isExpanded) {
+                                  e.currentTarget.style.backgroundColor = 'transparent';
+                                }
+                              }}
+                            >
+                              <ChevronRight
+                                style={{
+                                  width: '16px',
+                                  height: '16px',
+                                  marginRight: '8px',
+                                  transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                                  transition: 'transform 0.2s',
+                                  color: '#667eea'
+                                }}
+                              />
+                              <Book
+                                style={{
+                                  width: '18px',
+                                  height: '18px',
+                                  marginRight: '8px',
+                                  color: cabinetColor
+                                }}
+                              />
+                              <span style={{
+                                flex: 1,
+                                fontSize: '14px',
+                                fontWeight: isExpanded ? '600' : '500',
+                                color: '#1a202c'
+                              }}>
+                                {cabinet.name}
+                              </span>
+                              <span style={{
+                                fontSize: '12px',
+                                color: '#9ca3af',
+                                marginLeft: '8px'
+                              }}>
+                                {folderCount}
+                              </span>
+                            </div>
+
+                            {/* フォルダリスト */}
+                            {isExpanded && cabinet.children && cabinet.children.length > 0 && (
+                              <div style={{
+                                marginLeft: '32px',
+                                marginTop: '4px',
+                                borderLeft: '2px solid #e5e7eb',
+                                paddingLeft: '8px'
+                              }}>
+                                {cabinet.children.map((folder: FolderNode) => {
+                                  const isSelected = selectedFolderId === folder.id;
+                                  // フォルダの色を取得（デフォルトは黄色）
+                                  const folderColorMap: Record<string, string> = {
+                                    blue: '#3b82f6',
+                                    green: '#10b981',
+                                    red: '#ef4444',
+                                    purple: '#8b5cf6',
+                                    yellow: '#f59e0b',
+                                  };
+                                  const folderColor = folderColorMap[folder.color || 'yellow'] || '#f59e0b';
+
+                                  return (
+                                    <div
+                                      key={folder.id}
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        padding: '8px 10px',
+                                        backgroundColor: isSelected ? '#e8eaf6' : 'transparent',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        marginBottom: '2px',
+                                        border: isSelected ? '1px solid #667eea' : '1px solid transparent',
+                                        transition: 'all 0.2s'
+                                      }}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedFolderId(folder.id);
+                                        setCurrentFolder(folder);
+                                        setSelectedDocument(null);
+                                        setViewMode('bookshelf');
+                                      }}
+                                      onMouseEnter={(e) => {
+                                        if (!isSelected) {
+                                          e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                        }
+                                      }}
+                                      onMouseLeave={(e) => {
+                                        if (!isSelected) {
+                                          e.currentTarget.style.backgroundColor = 'transparent';
+                                        }
+                                      }}
+                                    >
+                                      <Folder
+                                        style={{
+                                          width: '16px',
+                                          height: '16px',
+                                          marginRight: '8px',
+                                          color: folderColor
+                                        }}
+                                      />
+                                      <span style={{
+                                        flex: 1,
+                                        fontSize: '13px',
+                                        fontWeight: isSelected ? '600' : '400',
+                                        color: '#374151'
+                                      }}>
+                                        {folder.name}
+                                      </span>
+                                      <span style={{
+                                        fontSize: '11px',
+                                        color: '#9ca3af'
+                                      }}>
+                                        {folder.children?.length || 0}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-
-                  <div style={{ flex: 1 }} />
-
-                  <button
-                    onClick={handleZoomOut}
-                    style={{
-                      padding: '6px 12px',
-                      backgroundColor: 'white',
-                      border: '2px solid #e5e7eb',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '13px',
-                      fontWeight: '600'
-                    }}
-                  >
-                    ズームアウト
-                  </button>
-                  <span style={{ fontSize: '13px', fontWeight: '600', color: '#64748b' }}>
-                    {zoom}%
-                  </span>
-                  <button
-                    onClick={handleZoomIn}
-                    style={{
-                      padding: '6px 12px',
-                      backgroundColor: 'white',
-                      border: '2px solid #e5e7eb',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '13px',
-                      fontWeight: '600'
-                    }}
-                  >
-                    ズームイン
-                  </button>
-
-                  <button
-                    onClick={handleRotate}
-                    style={{
-                      padding: '6px 12px',
-                      backgroundColor: 'white',
-                      border: '2px solid #e5e7eb',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '13px',
-                      fontWeight: '600'
-                    }}
-                  >
-                    回転
-                  </button>
-
-                  <div style={{ flex: 1 }} />
-
-                  <button
-                    onClick={() => setShowPageThumbnails(!showPageThumbnails)}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px',
-                      padding: '6px 12px',
-                      backgroundColor: showPageThumbnails ? '#667eea' : 'white',
-                      border: `2px solid ${showPageThumbnails ? '#667eea' : '#e5e7eb'}`,
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      color: showPageThumbnails ? 'white' : '#374151',
-                      transition: 'all 0.2s'
-                    }}
-                  >
-                    <Grid style={{ width: '14px', height: '14px' }} />
-                    ページ一覧
-                  </button>
-
-                  <button
-                    onClick={handleDownload}
-                    style={{
-                      padding: '6px 12px',
-                      backgroundColor: '#6366f1',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '6px',
-                      cursor: 'pointer',
-                      fontSize: '13px',
-                      fontWeight: '600'
-                    }}
-                  >
-                    ダウンロード
-                  </button>
-                </div>
+                )}
 
                 {/* 見開きビューアー */}
                 <div style={{
@@ -3728,12 +3718,67 @@ const DocumentLibrary = () => {
                   display: 'flex',
                   flexDirection: 'column',
                   overflow: 'hidden',
-                  height: '100%'
+                  width: '100%',
+                  height: '100%',
+                  position: 'relative'
                 }}>
+                  {/* サイドバートグルボタン（サイドバーが閉じている時のみ表示） */}
+                  {!isSpreadSidebarOpen && (
+                    <button
+                      onClick={() => setIsSpreadSidebarOpen(true)}
+                      style={{
+                        position: 'absolute',
+                        top: '16px',
+                        left: '16px',
+                        zIndex: 100,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '10px',
+                        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                        border: '2px solid #e5e7eb',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        color: '#374151',
+                        transition: 'all 0.2s',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 1)';
+                        e.currentTarget.style.borderColor = '#667eea';
+                        e.currentTarget.style.transform = 'translateY(-1px)';
+                        e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
+                        e.currentTarget.style.borderColor = '#e5e7eb';
+                        e.currentTarget.style.transform = 'translateY(0)';
+                        e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                      }}
+                    >
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                      </svg>
+                    </button>
+                  )}
+
                   <div style={{
                     flex: 1,
                     overflow: 'hidden',
-                    flexShrink: 0
+                    flexShrink: 0,
+                    width: '100%',
+                    height: '100%'
                   }}>
                     <SpreadView
                       document={selectedDocument}
@@ -3741,6 +3786,7 @@ const DocumentLibrary = () => {
                       zoom={zoom}
                       rotation={rotation}
                       onPageChange={setCurrentPage}
+                      sidebarWidth={isSpreadSidebarOpen ? 280 : 0}
                     />
                   </div>
 
@@ -3964,82 +4010,45 @@ const DocumentLibrary = () => {
                   )}
                 </div>
               </div>
-            ) : !selectedDocument && !currentFolder && !selectedParentFolder ? (
-              /* キャビネット一覧をカード表示 */
+            ) : (
+              /* サイドバー + 本棚レイアウト */
               <div style={{
+                display: 'flex',
                 height: '100%',
-                overflowY: 'auto'
+                overflow: 'hidden'
               }}>
-                {/* コンテンツエリア */}
-                <div style={{ padding: '40px' }}>
+                {/* サイドバー */}
+                <div style={{
+                  width: '280px',
+                  flexShrink: 0,
+                  backgroundColor: '#f8f9fa',
+                  borderRight: '2px solid #e5e7eb',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  height: '100%'
+                }}>
+                  {/* サイドバーヘッダー */}
                   <div style={{
-                    marginBottom: '32px'
+                    padding: '20px',
+                    borderBottom: '2px solid #e5e7eb'
                   }}>
                     <h2 style={{
-                      fontSize: '28px',
+                      fontSize: '18px',
                       fontWeight: '700',
                       color: '#1a202c',
                       marginBottom: '8px'
-                    }}>楽々ライブラリ</h2>
+                    }}>ライブラリ</h2>
                     <p style={{
-                      fontSize: '16px',
+                      fontSize: '13px',
                       color: '#64748b'
-                    }}>
-                      {filteredCabinets.length}個のキャビネット
-                      {searchQuery && ` (${treeData.children.length}個中)`}
-                    </p>
+                    }}>{treeData.children.length}個のキャビネット</p>
                   </div>
 
-                {filteredCabinets.length === 0 ? (
+                  {/* キャビネット・フォルダツリー */}
                   <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minHeight: '400px',
-                    textAlign: 'center'
-                  }}>
-                    {searchQuery ? (
-                      <>
-                        <Search style={{ width: '120px', height: '120px', color: '#9ca3af', marginBottom: '32px', opacity: 0.3 }} />
-                        <h3 style={{
-                          fontSize: '24px',
-                          fontWeight: '600',
-                          color: '#1a202c',
-                          marginBottom: '12px'
-                        }}>検索結果が見つかりません</h3>
-                        <p style={{
-                          fontSize: '16px',
-                          color: '#64748b',
-                          marginBottom: '24px'
-                        }}>
-                          「{searchQuery}」に一致するキャビネットはありません
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <Book style={{ width: '120px', height: '120px', color: '#667eea', marginBottom: '32px', opacity: 0.3 }} />
-                        <h3 style={{
-                          fontSize: '24px',
-                          fontWeight: '600',
-                          color: '#1a202c',
-                          marginBottom: '12px'
-                        }}>キャビネットがありません</h3>
-                        <p style={{
-                          fontSize: '16px',
-                          color: '#64748b',
-                          marginBottom: '24px'
-                        }}>
-                          まずはキャビネットを作成しましょう
-                        </p>
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                    gap: '24px'
+                    flex: 1,
+                    overflowY: 'auto',
+                    padding: '12px'
                   }}>
                     {filteredCabinets.map((cabinet, index) => {
                       const folderCount = cabinet.children?.filter(child => child.type === 'folder').length || 0;
@@ -4049,1130 +4058,213 @@ const DocumentLibrary = () => {
                       ];
                       const cabinetColor = cabinetColors[index % cabinetColors.length];
 
+                      const isExpanded = expandedCabinets.has(cabinet.id);
+
                       return (
-                        <div
-                          key={cabinet.id}
-                          onClick={() => {
-                            setSelectedParentFolder(cabinet);
-                            setBreadcrumbs([
-                              { name: 'ライブラリ', id: null },
-                              { name: cabinet.name, id: cabinet.id }
-                            ]);
-                            window.history.pushState(null, '', `#/cabinet/${cabinet.id}`);
-                          }}
-                          style={{
-                            position: 'relative',
-                            background: 'white',
-                            borderRadius: '16px',
-                            padding: '32px 24px',
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                            border: '2px solid transparent',
-                            minHeight: '220px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '20px'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = 'translateY(-8px)';
-                            e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.15)';
-                            e.currentTarget.style.borderColor = cabinetColor;
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
-                            e.currentTarget.style.borderColor = 'transparent';
-                          }}
-                        >
-                          {/* ⋮メニューボタン - 大きく目立つように */}
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setOpenMenuId(openMenuId === cabinet.id ? null : cabinet.id);
-                            }}
+                        <div key={cabinet.id} style={{ marginBottom: '4px' }}>
+                          {/* キャビネット項目 */}
+                          <div
                             style={{
-                              position: 'absolute',
-                              top: '16px',
-                              right: '16px',
-                              padding: '10px 12px',
-                              background: openMenuId === cabinet.id ? '#f3f4f6' : 'white',
-                              border: '2px solid #e5e7eb',
-                              borderRadius: '10px',
-                              cursor: 'pointer',
                               display: 'flex',
                               alignItems: 'center',
-                              justifyContent: 'center',
+                              padding: '10px 12px',
+                              backgroundColor: isExpanded ? '#e8eaf6' : 'transparent',
+                              borderRadius: '8px',
+                              cursor: 'pointer',
                               transition: 'all 0.2s',
-                              color: '#374151',
-                              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                              zIndex: 10
+                              border: isExpanded ? '1px solid #667eea' : '1px solid transparent'
+                            }}
+                            onClick={() => {
+                              const newExpanded = new Set(expandedCabinets);
+                              if (isExpanded) {
+                                newExpanded.delete(cabinet.id);
+                              } else {
+                                newExpanded.add(cabinet.id);
+                              }
+                              setExpandedCabinets(newExpanded);
                             }}
                             onMouseEnter={(e) => {
-                              e.currentTarget.style.background = '#f3f4f6';
-                              e.currentTarget.style.borderColor = cabinetColor;
-                              e.currentTarget.style.transform = 'scale(1.1)';
+                              if (!isExpanded) {
+                                e.currentTarget.style.backgroundColor = '#f3f4f6';
+                              }
                             }}
                             onMouseLeave={(e) => {
-                              e.currentTarget.style.background = openMenuId === cabinet.id ? '#f3f4f6' : 'white';
-                              e.currentTarget.style.borderColor = '#e5e7eb';
-                              e.currentTarget.style.transform = 'scale(1)';
+                              if (!isExpanded) {
+                                e.currentTarget.style.backgroundColor = 'transparent';
+                              }
                             }}
                           >
-                            <MoreVertical style={{ width: '22px', height: '22px' }} />
-                          </button>
-
-                          {/* ドロップダウンメニュー */}
-                          {openMenuId === cabinet.id && (
-                            <div
+                            <ChevronRight
                               style={{
-                                position: 'absolute',
-                                top: '60px',
-                                right: '16px',
-                                backgroundColor: 'white',
-                                borderRadius: '12px',
-                                boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-                                border: '1px solid #e5e7eb',
-                                minWidth: '200px',
-                                zIndex: 99999,
-                                overflow: 'visible'
+                                width: '16px',
+                                height: '16px',
+                                marginRight: '8px',
+                                transform: isExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                                transition: 'transform 0.2s',
+                                color: '#667eea'
                               }}
-                            >
-                              <div style={{ padding: '4px' }}>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openRenameModal('cabinet', cabinet.id, cabinet.name);
-                                  }}
-                                  style={{
-                                    width: '100%',
-                                    padding: '12px 16px',
-                                    textAlign: 'left',
-                                    border: 'none',
-                                    background: 'none',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '12px',
-                                    fontSize: '14px',
-                                    fontWeight: '500',
-                                    color: '#f59e0b',
-                                    borderRadius: '8px',
-                                    transition: 'all 0.2s'
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#fef3c7';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                  }}
-                                >
-                                  <Edit3 style={{ width: '16px', height: '16px' }} />
-                                  <span>名前を変更</span>
-                                </button>
-
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setNewFolderName('');
-                                    setSelectedParentForNewFolder(cabinet);
-                                    setShowNewFolderModal(true);
-                                    setOpenMenuId(null);
-                                  }}
-                                  style={{
-                                    width: '100%',
-                                    padding: '12px 16px',
-                                    textAlign: 'left',
-                                    border: 'none',
-                                    background: 'none',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '12px',
-                                    fontSize: '14px',
-                                    fontWeight: '500',
-                                    color: '#667eea',
-                                    borderRadius: '8px',
-                                    transition: 'all 0.2s'
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#ede9fe';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                  }}
-                                >
-                                  <FolderPlus style={{ width: '16px', height: '16px' }} />
-                                  <span>フォルダ作成</span>
-                                </button>
-
-                                <div style={{
-                                  height: '1px',
-                                  backgroundColor: '#e5e7eb',
-                                  margin: '4px 8px'
-                                }} />
-
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    confirmDelete('cabinet', cabinet.id, cabinet.name);
-                                  }}
-                                  style={{
-                                    width: '100%',
-                                    padding: '12px 16px',
-                                    textAlign: 'left',
-                                    border: 'none',
-                                    background: 'none',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '12px',
-                                    fontSize: '14px',
-                                    fontWeight: '500',
-                                    color: '#ef4444',
-                                    borderRadius: '8px',
-                                    transition: 'all 0.2s'
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#fee2e2';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                  }}
-                                >
-                                  <Trash2 style={{ width: '16px', height: '16px' }} />
-                                  <span>削除</span>
-                                </button>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* キャビネットアイコン */}
-                          <div style={{
-                            width: '100px',
-                            height: '100px',
-                            borderRadius: '20px',
-                            background: `linear-gradient(135deg, ${cabinetColor} 0%, ${cabinetColor}dd 100%)`,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            boxShadow: `0 8px 24px ${cabinetColor}40`
-                          }}>
-                            <Book style={{ width: '50px', height: '50px', color: 'white' }} />
-                          </div>
-
-                          {/* キャビネット名 */}
-                          <div style={{
-                            textAlign: 'center',
-                            width: '100%'
-                          }}>
-                            <h3 style={{
-                              fontSize: '18px',
-                              fontWeight: '600',
-                              color: '#1f2937',
-                              marginBottom: '8px',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap'
+                            />
+                            <Book
+                              style={{
+                                width: '18px',
+                                height: '18px',
+                                marginRight: '8px',
+                                color: cabinetColor
+                              }}
+                            />
+                            <span style={{
+                              flex: 1,
+                              fontSize: '14px',
+                              fontWeight: isExpanded ? '600' : '500',
+                              color: '#1a202c'
                             }}>
                               {cabinet.name}
-                            </h3>
-                            <p style={{
-                              fontSize: '14px',
-                              color: '#64748b'
+                            </span>
+                            <span style={{
+                              fontSize: '12px',
+                              color: '#9ca3af',
+                              marginLeft: '8px'
                             }}>
-                              {folderCount}個のフォルダ
-                            </p>
+                              {folderCount}
+                            </span>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-                </div>
-              </div>
-            ) : !selectedDocument && !currentFolder && selectedParentFolder ? (
-              /* フォルダ一覧をカード表示 (キャビネット内) */
-              <div style={{
-                height: '100%',
-                overflowY: 'auto'
-              }}>
-                {/* ヘッダーエリア：戻るボタン + パンくずリスト */}
-                <div style={{
-                  padding: '16px 40px',
-                  borderBottom: '1px solid #e5e7eb',
-                  backgroundColor: 'white',
-                  position: 'relative',
-                  zIndex: 10,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '16px'
-                }}>
-                  {/* 戻るボタン */}
-                  <button
-                    onClick={() => {
-                      setSelectedParentFolder(null);
-                      setBreadcrumbs([{ name: 'ライブラリ', id: null }]);
-                      window.history.pushState(null, '', '#/');
-                    }}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '8px 16px',
-                      background: 'white',
-                      border: '2px solid #e5e7eb',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: '500',
-                      color: '#374151',
-                      transition: 'all 0.2s',
-                      flexShrink: 0
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = '#f9fafb';
-                      e.currentTarget.style.borderColor = '#667eea';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'white';
-                      e.currentTarget.style.borderColor = '#e5e7eb';
-                    }}
-                  >
-                    <ChevronLeft style={{ width: '16px', height: '16px' }} />
-                    戻る
-                  </button>
 
-                  {/* パンくずナビゲーション */}
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '8px 16px',
-                    backgroundColor: 'rgba(102, 126, 234, 0.05)',
-                    borderRadius: '8px',
-                    border: '1px solid rgba(102, 126, 234, 0.2)',
-                    flex: 1
-                  }}>
-                    {breadcrumbs.map((crumb, index) => {
-                      const isLast = index === breadcrumbs.length - 1;
-                      return (
-                        <div key={index} style={{ display: 'contents' }}>
-                          <button
-                            onClick={() => {
-                              if (index === 0 && !isLast) {
-                                setSelectedParentFolder(null);
-                                setBreadcrumbs([{ name: 'ライブラリ', id: null }]);
-                                window.history.pushState(null, '', '#/');
-                              }
-                            }}
-                            style={{
-                              color: isLast ? '#1a202c' : '#667eea',
-                              fontWeight: isLast ? '600' : '500',
-                              fontSize: '14px',
-                              background: 'none',
-                              border: 'none',
-                              cursor: isLast ? 'default' : 'pointer',
-                              padding: '4px 8px',
-                              borderRadius: '6px',
-                              transition: 'all 0.2s'
-                            }}
-                            onMouseEnter={(e) => {
-                              if (!isLast) {
-                                e.currentTarget.style.backgroundColor = '#ede9fe';
-                              }
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = 'transparent';
-                            }}
-                          >
-                            {crumb.name}
-                          </button>
-                          {!isLast && (
-                            <ChevronRight style={{ width: '16px', height: '16px', color: '#cbd5e1' }} />
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                          {/* フォルダリスト */}
+                          {isExpanded && cabinet.children && cabinet.children.length > 0 && (
+                            <div style={{
+                              marginLeft: '32px',
+                              marginTop: '4px',
+                              borderLeft: '2px solid #e5e7eb',
+                              paddingLeft: '8px'
+                            }}>
+                              {cabinet.children.map((folder: FolderNode) => {
+                                const isSelected = selectedFolderId === folder.id;
+                                // フォルダの色を取得（デフォルトは黄色）
+                                const folderColorMap: Record<string, string> = {
+                                  blue: '#3b82f6',
+                                  green: '#10b981',
+                                  red: '#ef4444',
+                                  purple: '#8b5cf6',
+                                  yellow: '#f59e0b',
+                                };
+                                const folderColor = folderColorMap[folder.color || 'yellow'] || '#f59e0b';
 
-                {/* コンテンツエリア */}
-                <div style={{ padding: '40px' }}>
-                  <div style={{
-                    marginBottom: '32px'
-                  }}>
-                  <h2 style={{
-                    fontSize: '28px',
-                    fontWeight: '700',
-                    color: '#1a202c',
-                    marginBottom: '8px'
-                  }}>{selectedParentFolder.name}</h2>
-                  <p style={{
-                    fontSize: '16px',
-                    color: '#64748b'
-                  }}>
-                    {filteredFolders.length}個のフォルダ
-                    {searchQuery && ` (${selectedParentFolder.children?.filter(c => c.type === 'folder').length || 0}個中)`}
-                  </p>
-                </div>
-
-                {filteredFolders.length === 0 ? (
-                  <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minHeight: '400px',
-                    textAlign: 'center'
-                  }}>
-                    {searchQuery ? (
-                      <>
-                        <Search style={{ width: '120px', height: '120px', color: '#9ca3af', marginBottom: '32px', opacity: 0.3 }} />
-                        <h3 style={{
-                          fontSize: '24px',
-                          fontWeight: '600',
-                          color: '#1a202c',
-                          marginBottom: '12px'
-                        }}>検索結果が見つかりません</h3>
-                        <p style={{
-                          fontSize: '16px',
-                          color: '#64748b',
-                          marginBottom: '24px'
-                        }}>
-                          「{searchQuery}」に一致するフォルダはありません
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <Folder style={{ width: '120px', height: '120px', color: '#667eea', marginBottom: '32px', opacity: 0.3 }} />
-                        <h3 style={{
-                          fontSize: '24px',
-                          fontWeight: '600',
-                          color: '#1a202c',
-                          marginBottom: '12px'
-                        }}>フォルダがありません</h3>
-                        <p style={{
-                          fontSize: '16px',
-                          color: '#64748b',
-                          marginBottom: '24px'
-                        }}>
-                          まずはフォルダを作成しましょう
-                        </p>
-                      </>
-                    )}
-                  </div>
-                ) : (
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                    gap: '24px'
-                  }}>
-                    {filteredFolders.map((folder, index) => {
-                      const docCount = folder.children?.filter(child => child.type === 'document').length || 0;
-                      const folderColors = [
-                        '#667eea', '#f59e0b', '#10b981', '#ef4444',
-                        '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'
-                      ];
-                      const folderColor = folderColors[index % folderColors.length];
-
-                      return (
-                        <div
-                          key={folder.id}
-                          onClick={() => {
-                            setCurrentFolder(folder);
-                            const newBreadcrumbs = [
-                              ...breadcrumbs,
-                              { name: folder.name, id: folder.id }
-                            ];
-                            setBreadcrumbs(newBreadcrumbs);
-                            if (selectedParentFolder) {
-                              window.history.pushState(null, '', `#/cabinet/${selectedParentFolder.id}/folder/${folder.id}`);
-                            }
-                          }}
-                          style={{
-                            position: 'relative',
-                            background: 'white',
-                            borderRadius: '16px',
-                            padding: '32px 24px',
-                            cursor: 'pointer',
-                            transition: 'all 0.3s ease',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                            border: '2px solid transparent',
-                            minHeight: '220px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '20px'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.transform = 'translateY(-8px)';
-                            e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.15)';
-                            e.currentTarget.style.borderColor = folderColor;
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.transform = 'translateY(0)';
-                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.08)';
-                            e.currentTarget.style.borderColor = 'transparent';
-                          }}
-                        >
-                          {/* ⋮メニューボタン */}
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setOpenMenuId(openMenuId === folder.id ? null : folder.id);
-                            }}
-                            style={{
-                              position: 'absolute',
-                              top: '16px',
-                              right: '16px',
-                              padding: '10px 12px',
-                              background: openMenuId === folder.id ? '#f3f4f6' : 'white',
-                              border: '2px solid #e5e7eb',
-                              borderRadius: '10px',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'all 0.2s',
-                              color: '#374151',
-                              boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                              zIndex: 10
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.background = '#f3f4f6';
-                              e.currentTarget.style.borderColor = folderColor;
-                              e.currentTarget.style.transform = 'scale(1.1)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.background = openMenuId === folder.id ? '#f3f4f6' : 'white';
-                              e.currentTarget.style.borderColor = '#e5e7eb';
-                              e.currentTarget.style.transform = 'scale(1)';
-                            }}
-                          >
-                            <MoreVertical style={{ width: '22px', height: '22px' }} />
-                          </button>
-
-                          {/* ドロップダウンメニュー */}
-                          {openMenuId === folder.id && (
-                            <div
-                              style={{
-                                position: 'absolute',
-                                top: '60px',
-                                right: '16px',
-                                backgroundColor: 'white',
-                                borderRadius: '12px',
-                                boxShadow: '0 8px 24px rgba(0,0,0,0.2)',
-                                border: '1px solid #e5e7eb',
-                                minWidth: '200px',
-                                zIndex: 99999,
-                                overflow: 'visible'
-                              }}
-                            >
-                              <div style={{ padding: '4px' }}>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openRenameModal('folder', folder.id, folder.name);
-                                  }}
-                                  style={{
-                                    width: '100%',
-                                    padding: '12px 16px',
-                                    textAlign: 'left',
-                                    border: 'none',
-                                    background: 'none',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '12px',
-                                    fontSize: '14px',
-                                    fontWeight: '500',
-                                    color: '#f59e0b',
-                                    borderRadius: '8px',
-                                    transition: 'all 0.2s'
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#fef3c7';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                  }}
-                                >
-                                  <Edit3 style={{ width: '16px', height: '16px' }} />
-                                  <span>名前を変更</span>
-                                </button>
-
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openMultiFileModal(folder.id);
-                                  }}
-                                  style={{
-                                    width: '100%',
-                                    padding: '12px 16px',
-                                    textAlign: 'left',
-                                    border: 'none',
-                                    background: 'none',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '12px',
-                                    fontSize: '14px',
-                                    fontWeight: '500',
-                                    color: '#667eea',
-                                    borderRadius: '8px',
-                                    transition: 'all 0.2s'
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#ede9fe';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                  }}
-                                >
-                                  <FilePlus style={{ width: '16px', height: '16px' }} />
-                                  <span>ファイルを追加</span>
-                                </button>
-
-                                <div style={{
-                                  height: '1px',
-                                  backgroundColor: '#e5e7eb',
-                                  margin: '4px 8px'
-                                }} />
-
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    confirmDelete('folder', folder.id, folder.name);
-                                  }}
-                                  style={{
-                                    width: '100%',
-                                    padding: '12px 16px',
-                                    textAlign: 'left',
-                                    border: 'none',
-                                    background: 'none',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '12px',
-                                    fontSize: '14px',
-                                    fontWeight: '500',
-                                    color: '#ef4444',
-                                    borderRadius: '8px',
-                                    transition: 'all 0.2s'
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.backgroundColor = '#fee2e2';
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.backgroundColor = 'transparent';
-                                  }}
-                                >
-                                  <Trash2 style={{ width: '16px', height: '16px' }} />
-                                  <span>削除</span>
-                                </button>
-                              </div>
+                                return (
+                                  <div
+                                    key={folder.id}
+                                    style={{
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      padding: '8px 10px',
+                                      backgroundColor: isSelected ? '#e8eaf6' : 'transparent',
+                                      borderRadius: '6px',
+                                      cursor: 'pointer',
+                                      marginBottom: '2px',
+                                      border: isSelected ? '1px solid #667eea' : '1px solid transparent',
+                                      transition: 'all 0.2s'
+                                    }}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedFolderId(folder.id);
+                                      setCurrentFolder(folder);
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      if (!isSelected) {
+                                        e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                      }
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      if (!isSelected) {
+                                        e.currentTarget.style.backgroundColor = 'transparent';
+                                      }
+                                    }}
+                                  >
+                                    <Folder
+                                      style={{
+                                        width: '16px',
+                                        height: '16px',
+                                        marginRight: '8px',
+                                        color: folderColor
+                                      }}
+                                    />
+                                    <span style={{
+                                      flex: 1,
+                                      fontSize: '13px',
+                                      fontWeight: isSelected ? '600' : '400',
+                                      color: '#374151'
+                                    }}>
+                                      {folder.name}
+                                    </span>
+                                    <span style={{
+                                      fontSize: '11px',
+                                      color: '#9ca3af'
+                                    }}>
+                                      {folder.children?.length || 0}
+                                    </span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           )}
-
-                          {/* フォルダアイコン */}
-                          <div style={{
-                            width: '100px',
-                            height: '100px',
-                            borderRadius: '20px',
-                            background: `linear-gradient(135deg, ${folderColor} 0%, ${folderColor}dd 100%)`,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            boxShadow: `0 8px 24px ${folderColor}40`
-                          }}>
-                            <Folder style={{ width: '50px', height: '50px', color: 'white' }} />
-                          </div>
-
-                          {/* フォルダ名 */}
-                          <div style={{
-                            textAlign: 'center',
-                            width: '100%'
-                          }}>
-                            <h3 style={{
-                              fontSize: '18px',
-                              fontWeight: '600',
-                              color: '#1f2937',
-                              marginBottom: '8px',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap'
-                            }}>
-                              {folder.name}
-                            </h3>
-                            <p style={{
-                              fontSize: '14px',
-                              color: '#64748b'
-                            }}>
-                              {docCount}個のドキュメント
-                            </p>
-                          </div>
                         </div>
                       );
                     })}
                   </div>
-                )}
                 </div>
-              </div>
-            ) : (
-              <>
-            {/* 旧ドキュメントグリッド表示（使用されていない） */}
-            <div style={{
-              padding: '16px 24px',
-              backgroundColor: 'rgba(255, 255, 255, 0.7)',
-              backdropFilter: 'blur(10px)',
-              borderBottom: '1px solid rgba(0,0,0,0.05)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}>
-              {breadcrumbs.map((crumb, index) => (
-                <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <button
-                    onClick={() => handleBreadcrumbClick(index)}
-                    style={{
-                      color: index === breadcrumbs.length - 1 ? '#1a202c' : '#64748b',
-                      fontWeight: index === breadcrumbs.length - 1 ? '600' : '400',
-                      fontSize: '14px',
-                      background: 'none',
-                      border: 'none',
-                      cursor: index === breadcrumbs.length - 1 ? 'default' : 'pointer',
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (index !== breadcrumbs.length - 1) {
-                        e.currentTarget.style.backgroundColor = 'rgba(99, 102, 241, 0.1)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }}
-                  >
-                    {crumb.name}
-                  </button>
-                  {index < breadcrumbs.length - 1 && (
-                    <ChevronRight style={{ width: '16px', height: '16px', color: '#cbd5e1' }} />
-                  )}
-                </div>
-              ))}
-            </div>
 
-            {/* コンテンツヘッダー */}
-            <div style={{
-              padding: '24px 24px 16px 24px',
-              backgroundColor: 'rgba(255, 255, 255, 0.5)'
-            }}>
-              <h2 style={{
-                fontSize: '24px',
-                fontWeight: '700',
-                color: '#1f2937',
-                margin: 0
-              }}>
-                {currentFolder ? currentFolder.name : selectedParentFolder ? selectedParentFolder.name : 'すべてのドキュメント'}
-              </h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
-                <p style={{
-                  fontSize: '14px',
-                  color: '#64748b',
-                  margin: 0
-                }}>
-                  {selectedParentFolder && !currentFolder
-                    ? `${selectedParentFolder.children?.length || 0} 個のフォルダ`
-                    : `${currentDocuments.length} 件のドキュメント`}
-                </p>
-                <span style={{
-                  fontSize: '12px',
-                  color: '#9ca3af',
-                  padding: '4px 8px',
-                  backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                  borderRadius: '6px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}>
-                  <Upload style={{ width: '12px', height: '12px' }} />
-                  ドラッグ&ドロップでファイル追加
-                </span>
-              </div>
-            </div>
-
-            {/* グリッド表示エリア */}
-            <div className="document-grid" style={{ flex: 1, position: 'relative' }}>
-              {/* ドラッグ&ドロップオーバーレイ */}
-              {isDraggingFile && (
+                {/* メインコンテンツエリア */}
                 <div style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  backgroundColor: 'rgba(139, 92, 246, 0.1)',
-                  backdropFilter: 'blur(4px)',
+                  flex: 1,
+                  backgroundColor: 'white',
+                  overflowY: 'auto',
                   display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '16px',
-                  zIndex: 1000,
-                  pointerEvents: 'none'
+                  flexDirection: 'column'
                 }}>
-                  <div style={{
-                    width: '120px',
-                    height: '120px',
-                    borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: '0 8px 32px rgba(102, 126, 234, 0.4)',
-                    animation: 'pulse 2s ease-in-out infinite'
-                  }}>
-                    <Upload style={{ width: '60px', height: '60px', color: 'white' }} />
-                  </div>
-                  <div style={{
-                    fontSize: '24px',
-                    fontWeight: '700',
-                    color: '#8b5cf6',
-                    textAlign: 'center',
-                    textShadow: '0 2px 8px rgba(255, 255, 255, 0.8)'
-                  }}>
-                    ここにファイルをドロップ
-                  </div>
-                  <div style={{
-                    fontSize: '16px',
-                    color: '#6b7280',
-                    textAlign: 'center',
-                    backgroundColor: 'white',
-                    padding: '8px 16px',
-                    borderRadius: '20px',
-                    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
-                  }}>
-                    {currentFolder ? `「${currentFolder.name}」フォルダに保存されます` : '最初のフォルダに保存されます'}
-                  </div>
-                </div>
-              )}
-
-              {/* 親フォルダが選択されている場合は子フォルダを表示 */}
-              {selectedParentFolder && !currentFolder ? (
-                selectedParentFolder.children && selectedParentFolder.children.length > 0 ? (
-                  selectedParentFolder.children.map(childFolder => (
-                    <div
-                      key={childFolder.id}
-                      onClick={() => handleChildFolderClick(childFolder)}
-                      style={{
-                        background: 'white',
-                        borderRadius: '16px',
-                        padding: '24px',
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-                        border: '2px solid transparent'
+                  {selectedFolderId && currentFolder ? (
+                    <BookshelfView
+                      folders={[currentFolder]}
+                      onBookClick={(doc) => {
+                        handleBookClick(doc);
+                        setViewMode('spread');
                       }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = 'translateY(-4px)';
-                        e.currentTarget.style.boxShadow = '0 8px 24px rgba(0,0,0,0.12)';
-                        e.currentTarget.style.borderColor = '#6366f1';
+                      currentCabinetName={currentFolder.name}
+                      onBackClick={() => {
+                        setSelectedFolderId(null);
+                        setCurrentFolder(null);
                       }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = 'translateY(0)';
-                        e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.05)';
-                        e.currentTarget.style.borderColor = 'transparent';
-                      }}
-                    >
-                      <div style={{
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: '16px'
-                      }}>
-                        <div style={{
-                          width: '80px',
-                          height: '80px',
-                          borderRadius: '16px',
-                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}>
-                          <Folder style={{ width: '40px', height: '40px', color: 'white' }} />
-                        </div>
-                        <div style={{ textAlign: 'center', width: '100%' }}>
-                          <div style={{
-                            fontWeight: '600',
-                            fontSize: '16px',
-                            color: '#1f2937',
-                            marginBottom: '4px'
-                          }}>
-                            {childFolder.name}
-                          </div>
-                          <div style={{
-                            fontSize: '14px',
-                            color: '#64748b'
-                          }}>
-                            {childFolder.children?.filter(child => child.type !== 'folder').length || 0} ドキュメント
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div
-                    className="col-span-full flex flex-col items-center justify-center"
-                    style={{
-                      minHeight: '400px',
-                      margin: '20px',
-                      border: '3px dashed #cbd5e1',
-                      borderRadius: '24px',
-                      backgroundColor: 'rgba(255, 255, 255, 0.5)',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease',
-                      padding: '40px'
-                    }}
-                    onClick={() => fileInputRef.current?.click()}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.borderColor = '#8b5cf6';
-                      e.currentTarget.style.backgroundColor = 'rgba(139, 92, 246, 0.05)';
-                      e.currentTarget.style.transform = 'scale(1.02)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.borderColor = '#cbd5e1';
-                      e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
-                      e.currentTarget.style.transform = 'scale(1)';
-                    }}
-                  >
+                      breadcrumbs={[
+                        { name: 'ライブラリ', id: null },
+                        { name: currentFolder.name, id: currentFolder.id }
+                      ]}
+                      onBreadcrumbClick={() => {}}
+                      isSelectionMode={isSelectionMode}
+                      selectedDocumentIds={selectedDocumentIds}
+                      onToggleDocumentSelection={toggleDocumentSelection}
+                      onToggleSelectionMode={toggleSelectionMode}
+                      onSelectAll={selectAllDocuments}
+                      onDeselectAll={deselectAllDocuments}
+                      onBulkDelete={bulkDeleteDocuments}
+                    />
+                  ) : (
                     <div style={{
-                      width: '120px',
-                      height: '120px',
-                      borderRadius: '50%',
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      marginBottom: '24px',
-                      boxShadow: '0 8px 32px rgba(102, 126, 234, 0.3)'
-                    }}>
-                      <Upload style={{ width: '60px', height: '60px', color: 'white' }} />
-                    </div>
-                    <p style={{
-                      fontSize: '24px',
-                      fontWeight: '700',
-                      color: '#1f2937',
-                      marginBottom: '12px'
-                    }}>
-                      フォルダが空です
-                    </p>
-                    <p style={{
-                      fontSize: '16px',
-                      color: '#64748b',
-                      marginBottom: '8px'
-                    }}>
-                      ファイルをドラッグ＆ドロップ、またはクリックして追加
-                    </p>
-                    <p style={{
-                      fontSize: '14px',
+                      height: '100%',
                       color: '#9ca3af',
-                      marginTop: '16px'
+                      fontSize: '18px',
+                      fontWeight: '500'
                     }}>
-                      対応形式: PDF、画像、動画、テキストファイル
-                    </p>
-                  </div>
-                )
-              ) : currentDocuments.length === 0 ? (
-                <div
-                  className="col-span-full flex flex-col items-center justify-center"
-                  style={{
-                    minHeight: '400px',
-                    margin: '20px',
-                    border: '3px dashed #cbd5e1',
-                    borderRadius: '24px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.5)',
-                    cursor: 'pointer',
-                    transition: 'all 0.3s ease',
-                    padding: '40px'
-                  }}
-                  onClick={() => fileInputRef.current?.click()}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = '#8b5cf6';
-                    e.currentTarget.style.backgroundColor = 'rgba(139, 92, 246, 0.05)';
-                    e.currentTarget.style.transform = 'scale(1.02)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = '#cbd5e1';
-                    e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
-                    e.currentTarget.style.transform = 'scale(1)';
-                  }}
-                >
-                  <div style={{
-                    width: '120px',
-                    height: '120px',
-                    borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    marginBottom: '24px',
-                    boxShadow: '0 8px 32px rgba(102, 126, 234, 0.3)'
-                  }}>
-                    <Upload style={{ width: '60px', height: '60px', color: 'white' }} />
-                  </div>
-                  <p style={{
-                    fontSize: '24px',
-                    fontWeight: '700',
-                    color: '#1f2937',
-                    marginBottom: '12px'
-                  }}>
-                    {searchQuery ? '検索条件に一致するドキュメントが見つかりません' : 'ファイルをドラッグ＆ドロップ'}
-                  </p>
-                  {!searchQuery && (
-                    <>
-                      <p style={{
-                        fontSize: '16px',
-                        color: '#64748b',
-                        marginBottom: '8px'
-                      }}>
-                        または、クリックしてファイルを選択
-                      </p>
-                      <p style={{
-                        fontSize: '14px',
-                        color: '#9ca3af',
-                        marginTop: '16px'
-                      }}>
-                        対応形式: PDF、画像、動画、テキストファイル
-                      </p>
-                    </>
+                      サイドバーからフォルダを選択してください
+                    </div>
                   )}
                 </div>
-              ) : (
-                currentDocuments.map(doc => {
-                  const folderInfo = findDocumentFolder(doc.id);
-                  const folderName = folderInfo ? folderInfo.folder.name : 'その他';
-
-                  return (
-                    <div
-                      key={doc.id}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        openDocument(doc);
-                      }}
-                      className="document-card"
-                      style={{ '--doc-color': getBinderColorValue(doc.color), cursor: 'pointer', position: 'relative' }}
-                    >
-                      {/* 削除ボタン - 右上に配置 */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          confirmDelete('document', doc.id, doc.name);
-                        }}
-                        style={{
-                          position: 'absolute',
-                          top: '8px',
-                          right: '8px',
-                          padding: '6px',
-                          background: 'rgba(239, 68, 68, 0.9)',
-                          border: 'none',
-                          borderRadius: '6px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          transition: 'all 0.2s',
-                          zIndex: 10,
-                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.2)'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = 'rgba(220, 38, 38, 1)';
-                          e.currentTarget.style.transform = 'scale(1.1)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = 'rgba(239, 68, 68, 0.9)';
-                          e.currentTarget.style.transform = 'scale(1)';
-                        }}
-                        title="ドキュメントを削除"
-                      >
-                        <Trash2 style={{ width: '16px', height: '16px', color: 'white' }} />
-                      </button>
-
-                      <div className="aspect-[3/4] bg-gradient-to-br from-gray-50 to-gray-100 relative overflow-hidden rounded-lg mb-3">
-                        {doc.pages && doc.pages[0] ? (
-                          doc.pages[0].type === 'image' && doc.pages[0].url && (doc.pages[0].url.startsWith('http') || doc.pages[0].url.startsWith('data:') || doc.pages[0].url.startsWith('blob:')) ? (
-                            <img
-                              src={doc.pages[0].url}
-                              alt={doc.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : doc.pages[0].type === 'text' ? (
-                            <div className="p-3 h-full flex flex-col justify-center">
-                              <FileText className="w-8 h-8 text-blue-500 mb-2 mx-auto" />
-                              <div className="text-xs text-gray-600 line-clamp-4 leading-relaxed">
-                                {doc.pages[0].content.substring(0, 150)}...
-                              </div>
-                            </div>
-                          ) : doc.pages[0].type === 'video' ? (
-                            <div className="h-full flex flex-col items-center justify-center">
-                              <Video className="w-8 h-8 text-purple-500 mb-2" />
-                              <span className="text-xs text-gray-600">動画ファイル</span>
-                            </div>
-                          ) : (
-                            <div className="h-full flex flex-col items-center justify-center">
-                              <Image className="w-8 h-8 text-gray-400 mb-2" />
-                              <span className="text-xs text-gray-500">画像ファイル</span>
-                            </div>
-                          )
-                        ) : (
-                          <div className="h-full flex flex-col items-center justify-center">
-                            <File className="w-8 h-8 text-gray-400 mb-2" />
-                            <span className="text-xs text-gray-500">ファイル</span>
-                          </div>
-                        )}
-
-                        {/* ページ数バッジ - 左上に配置 */}
-                        <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded-full">
-                          {doc.pages ? doc.pages.length : 0}
-                        </div>
-                      </div>
-
-                      {/* フォルダ名を表示 */}
-                      <div style={{
-                        fontSize: '11px',
-                        color: '#6b7280',
-                        marginBottom: '4px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}>
-                        <Folder style={{ width: '12px', height: '12px' }} />
-                        <span>{folderName}</span>
-                      </div>
-
-                      <div className="document-title">
-                        {doc.name}
-                      </div>
-                      <div className="document-pages">
-                        {doc.pages ? doc.pages.length : 0} ページ
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-            </>
+              </div>
             )}
           </div>
         </div>
       </div>
+
 
       {/* ドキュメントビューワー（モーダル） - 改善版 */}
       {/* 本棚UIを使用していない場合のみ表示 */}
@@ -5855,6 +4947,70 @@ const DocumentLibrary = () => {
                 onFocus={(e) => e.target.style.borderColor = '#6366f1'}
                 onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
               />
+
+              {/* フォルダの色選択 */}
+              <label style={{
+                display: 'block',
+                fontSize: '14px',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '8px'
+              }}>
+                フォルダの色
+              </label>
+              <div style={{
+                display: 'flex',
+                gap: '12px',
+                marginBottom: '20px'
+              }}>
+                {folderColorOptions.map((colorOption) => (
+                  <button
+                    key={colorOption.value}
+                    type="button"
+                    onClick={() => setNewFolderColor(colorOption.value)}
+                    style={{
+                      width: '48px',
+                      height: '48px',
+                      borderRadius: '12px',
+                      backgroundColor: colorOption.color,
+                      border: newFolderColor === colorOption.value
+                        ? `4px solid ${colorOption.color}`
+                        : '4px solid transparent',
+                      outline: newFolderColor === colorOption.value
+                        ? '2px solid #667eea'
+                        : '2px solid #e5e7eb',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      position: 'relative',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.15)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'scale(1.1)';
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.25)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'scale(1)';
+                      e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15)';
+                    }}
+                    title={colorOption.name}
+                  >
+                    {newFolderColor === colorOption.value && (
+                      <span style={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: '50%',
+                        transform: 'translate(-50%, -50%)',
+                        color: 'white',
+                        fontSize: '20px',
+                        fontWeight: 'bold',
+                        textShadow: '0 2px 4px rgba(0,0,0,0.3)'
+                      }}>
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                ))}
+              </div>
 
               {/* 親フォルダ選択 */}
               <label style={{
