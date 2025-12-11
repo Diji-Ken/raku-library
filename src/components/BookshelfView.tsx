@@ -1,14 +1,13 @@
-import { ChevronLeft, ChevronRight, CheckSquare, Square, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, CheckSquare, Square, Trash2, Edit3 } from 'lucide-react';
 import BookCard from './BookCard';
-import type { DocumentNode, TreeNode, Breadcrumb } from '../types';
+import type { DocumentNode, TreeNode } from '../types';
 
 interface BookshelfViewProps {
   folders?: TreeNode[];
   onBookClick: (doc: DocumentNode) => void;
+  onFolderClick?: (folder: TreeNode) => void;
   currentCabinetName?: string;
   onBackClick?: () => void;
-  breadcrumbs?: Breadcrumb[];
-  onBreadcrumbClick?: (index: number) => void;
   isSelectionMode?: boolean;
   selectedDocumentIds?: Set<string>;
   onToggleDocumentSelection?: (documentId: string) => void;
@@ -16,29 +15,30 @@ interface BookshelfViewProps {
   onSelectAll?: () => void;
   onDeselectAll?: () => void;
   onBulkDelete?: () => void;
+  onRename?: (documentId: string) => void;
 }
 
 const BookshelfView: React.FC<BookshelfViewProps> = ({
   folders = [],
   onBookClick,
+  onFolderClick,
   currentCabinetName = 'ドキュメント一覧',
   onBackClick,
-  breadcrumbs = [],
-  onBreadcrumbClick,
   isSelectionMode = false,
   selectedDocumentIds = new Set(),
   onToggleDocumentSelection,
   onToggleSelectionMode,
   onSelectAll,
   onDeselectAll,
-  onBulkDelete
+  onBulkDelete,
+  onRename
 }) => {
   // 1行あたりの本の数
-  const booksPerShelf = 20;
+  const booksPerShelf = 10;
 
   return (
     <div className="bookshelf-container">
-      {/* ヘッダーエリア：戻るボタン + パンくずリスト */}
+      {/* ヘッダーエリア */}
       <div style={{
         padding: '16px 40px',
         borderBottom: '1px solid #e5e7eb',
@@ -82,58 +82,7 @@ const BookshelfView: React.FC<BookshelfViewProps> = ({
           </button>
         )}
 
-        {/* パンくずナビゲーション */}
-        {breadcrumbs && breadcrumbs.length > 0 && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            padding: '8px 16px',
-            backgroundColor: 'rgba(102, 126, 234, 0.05)',
-            borderRadius: '8px',
-            border: '1px solid rgba(102, 126, 234, 0.2)',
-            flex: 1
-          }}>
-            {breadcrumbs.map((crumb, index) => {
-              const isLast = index === breadcrumbs.length - 1;
-              return (
-                <div key={index} style={{ display: 'contents' }}>
-                  <button
-                    onClick={() => {
-                      if (!isLast && onBreadcrumbClick) {
-                        onBreadcrumbClick(index);
-                      }
-                    }}
-                    style={{
-                      color: isLast ? '#1a202c' : '#667eea',
-                      fontWeight: isLast ? '600' : '500',
-                      fontSize: '14px',
-                      background: 'none',
-                      border: 'none',
-                      cursor: isLast ? 'default' : 'pointer',
-                      padding: '4px 8px',
-                      borderRadius: '6px',
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isLast) {
-                        e.currentTarget.style.backgroundColor = '#ede9fe';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }}
-                  >
-                    {crumb.name}
-                  </button>
-                  {!isLast && (
-                    <ChevronRight style={{ width: '16px', height: '16px', color: '#cbd5e1' }} />
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+        <div style={{ flex: 1 }} />
 
         {/* 選択モード切り替えボタン */}
         {onToggleSelectionMode && (
@@ -250,6 +199,39 @@ const BookshelfView: React.FC<BookshelfViewProps> = ({
             </button>
           )}
 
+          {/* 名称変更ボタン（1つだけ選択されている場合のみ表示） */}
+          {onRename && selectedDocumentIds.size === 1 && (
+            <button
+              onClick={() => {
+                const documentId = Array.from(selectedDocumentIds)[0];
+                onRename(documentId);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 12px',
+                background: 'white',
+                border: '1px solid #d1d5db',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: '500',
+                color: '#374151',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = '#f9fafb';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = 'white';
+              }}
+            >
+              <Edit3 style={{ width: '14px', height: '14px' }} />
+              名称変更
+            </button>
+          )}
+
           <div style={{ flex: 1 }} />
 
           {onBulkDelete && (
@@ -300,9 +282,11 @@ const BookshelfView: React.FC<BookshelfViewProps> = ({
           padding: '40px'
         }}>
           {folders.map((folder) => {
-            const folderDocuments = (folder.children?.filter(child => child.type === 'document') as DocumentNode[]) || [];
+            const children = 'children' in folder ? folder.children : [];
+            // 本棚にはバインダ（document）のみを表示
+            const folderDocuments = (children?.filter((child: any) => child.type === 'document') as DocumentNode[]) || [];
 
-            // フォルダ内の本を棚ごとにグループ化
+            // バインダを棚ごとにグループ化
             const folderShelves: DocumentNode[][] = [];
             for (let i = 0; i < folderDocuments.length; i += booksPerShelf) {
               folderShelves.push(folderDocuments.slice(i, i + booksPerShelf));
@@ -312,14 +296,14 @@ const BookshelfView: React.FC<BookshelfViewProps> = ({
               <div key={folder.id} className="folder-section">
                 {folderDocuments.length === 0 ? (
                   <div className="folder-section-empty">
-                    このフォルダにはドキュメントがありません
+                    このフォルダには何もありません
                   </div>
                 ) : (
                   <div className="folder-shelves">
-                    {folderShelves.map((shelfBooks, shelfIndex) => (
+                    {folderShelves.map((shelfItems, shelfIndex) => (
                       <div key={shelfIndex} className="shelf-box">
                         <div className="shelf-books">
-                          {shelfBooks.map(doc => (
+                          {shelfItems.map(doc => (
                             <BookCard
                               key={doc.id}
                               document={doc}

@@ -15,6 +15,7 @@ export interface DocumentNode {
   color?: string;
   pages: DocumentPage[];
   pdfUrl?: string;
+  pdfPages?: string[]; // 複数のPDFファイルパスの配列
   file?: File;
   originalFile?: File;
   fileType?: string;

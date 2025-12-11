@@ -328,7 +328,7 @@ const SpreadView: React.FC<SpreadViewProps> = ({
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 40px;
+  padding: 10px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   min-height: calc(100vh - 160px);
 }

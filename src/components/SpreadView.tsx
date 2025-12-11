@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
-import { Document, Page } from 'react-pdf';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Document, Page } from 'react-pdf';
 import type { DocumentNode } from '../types';
 
 interface SpreadViewProps {
@@ -20,14 +20,16 @@ const SpreadView: React.FC<SpreadViewProps> = ({
   onPageChange,
   sidebarWidth = 0,
 }) => {
-  const [numPages, setNumPages] = useState<number>(document.pages?.length || 0);
+  // 複数PDFファイルの場合はpdfPagesの長さを使用
+  const initialPages = document.pdfPages?.length || document.pages?.length || 0;
+  const [numPages, setNumPages] = useState<number>(initialPages);
   // PDFファイルの場合のみローディング状態を管理
-  const isPDF = !!(document.originalFile || document.pdfUrl);
+  const isPDF = !!(document.originalFile || document.pdfUrl || document.pdfPages);
   const [isLoading, setIsLoading] = useState<boolean>(isPDF);
   const [internalPage, setInternalPage] = useState<number>(1);
   const [isFlipping, setIsFlipping] = useState<boolean>(false);
   const [flipDirection, setFlipDirection] = useState<'next' | 'prev' | null>(null);
-  const totalPages = numPages || document.pages?.length || 0;
+  const totalPages = document.pdfPages?.length || numPages || document.pages?.length || 0;
   const pdfScale = zoom / 100;
 
   // 見開き表示用：左ページと右ページの番号を計算
@@ -40,9 +42,8 @@ const SpreadView: React.FC<SpreadViewProps> = ({
 
   useEffect(() => {
     const updatePageSize = () => {
-      // 利用可能な画面サイズを計算（余白を完全に削除）
-      // ページコントロール(約50px)のみ
-      const availableHeight = window.innerHeight - 50;
+      // 利用可能な画面サイズを計算（ページコントロール用のスペースを確保）
+      const availableHeight = window.innerHeight - 30; // ページコントロール用に100px確保
       const availableWidth = window.innerWidth - sidebarWidth; // サイドバーの幅を引く
 
       // A4比率（1:1.41）を基準に計算
@@ -139,6 +140,7 @@ const SpreadView: React.FC<SpreadViewProps> = ({
 
   // ページクリックでめくる（クリックしたページだけをめくる）
   const handleLeftPageClick = () => {
+    if (zoom > 100) return; // ズーム時はページめくり無効
     if (isFlipping || internalPage <= 1) return;
 
     const newPage = Math.max(1, leftPage - 2);
@@ -159,6 +161,7 @@ const SpreadView: React.FC<SpreadViewProps> = ({
   };
 
   const handleRightPageClick = () => {
+    if (zoom > 100) return; // ズーム時はページめくり無効
     // 右ページが存在しない、または既に最後のページを表示している場合は何もしない
     if (isFlipping || !rightPage || rightPage >= totalPages) return;
 
@@ -179,6 +182,248 @@ const SpreadView: React.FC<SpreadViewProps> = ({
     }, 1000);
   };
 
+  // 複数PDFファイルの場合（pdfPagesが存在する場合）
+  if (document.pdfPages && document.pdfPages.length > 0) {
+    // 各ページに対応するPDFファイルのパスを取得
+    const leftPagePdf = document.pdfPages[leftPage - 1];
+    const rightPagePdf = rightPage ? document.pdfPages[rightPage - 1] : null;
+
+    // カラーラベルの色を取得
+    const getBookColor = (color?: string) => {
+      const colorMap: Record<string, string> = {
+        blue: '#3b82f6',
+        green: '#10b981',
+        red: '#ef4444',
+        yellow: '#f59e0b',
+        purple: '#8b5cf6',
+      };
+      return colorMap[color || 'blue'] || colorMap.blue;
+    };
+
+    return (
+      <div className="spread-viewer">
+        {/* バインダ名表示 */}
+        <div style={{
+          position: 'absolute',
+          top: '16px',
+          right: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          zIndex: 10,
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          padding: '6px 12px',
+          borderRadius: '6px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          border: '1px solid #e5e7eb'
+        }}>
+          {document.color && (
+            <div style={{
+              width: '16px',
+              height: '16px',
+              backgroundColor: getBookColor(document.color),
+              borderRadius: '2px'
+            }} />
+          )}
+          <span style={{
+            fontSize: '13px',
+            fontWeight: '600',
+            color: '#374151'
+          }}>
+            {document.name}
+          </span>
+        </div>
+
+        <div className="spread-book-container" style={{
+          width: '100%',
+          height: '100%',
+          display: 'flex',
+          justifyContent: zoom > 100 ? 'flex-start' : 'center',
+          alignItems: zoom > 100 ? 'flex-start' : 'center',
+          padding: '0px 0 25px 0',
+          perspective: '3000px',
+          overflow: zoom > 100 ? 'auto' : 'hidden',
+          position: 'relative'
+        }}
+        >
+          <div style={{
+            position: 'relative',
+            display: 'flex',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
+            borderRadius: '12px',
+            overflow: 'visible',
+            transformStyle: 'preserve-3d',
+            maxWidth: zoom > 100 ? 'none' : '100%',
+            margin: zoom > 100 ? '0' : 'auto'
+          }}>
+            {/* 左ページ */}
+            <div
+              onClick={handleLeftPageClick}
+              style={{
+                width: `${pageWidth * (zoom / 100)}px`,
+                height: `${pageHeight * (zoom / 100)}px`,
+                backgroundColor: 'white',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                borderRight: '2px solid #ccc',
+                boxShadow: 'inset -15px 0 30px rgba(0,0,0,0.15)',
+                cursor: zoom > 100 ? 'inherit' : (internalPage > 1 ? 'pointer' : 'default'),
+                position: 'relative',
+                transformOrigin: 'right center',
+                transform: isFlipping && flipDirection === 'prev'
+                  ? 'rotateY(180deg) translateZ(2px)'
+                  : 'rotateY(0deg)',
+                transition: flipDirection !== null ? 'transform 1s cubic-bezier(0.4, 0.0, 0.2, 1)' : 'none',
+                zIndex: isFlipping && flipDirection === 'prev' ? 10 : 1,
+                overflow: 'hidden',
+                pointerEvents: zoom > 100 ? 'none' : 'auto'
+              }}
+            >
+              {leftPagePdf && (
+                <Document
+                  file={leftPagePdf}
+                  onLoadError={(error) => {
+                    console.error('PDF読み込みエラー (左ページ):', error);
+                  }}
+                >
+                  <Page
+                    pageNumber={1}
+                    width={pageWidth * (zoom / 100)}
+                    rotate={rotation}
+                    renderTextLayer={false}
+                    renderAnnotationLayer={false}
+                  />
+                </Document>
+              )}
+            </div>
+
+            {/* 右ページ */}
+            {rightPage && rightPagePdf && (
+              <div
+                onClick={handleRightPageClick}
+                style={{
+                  width: `${pageWidth * (zoom / 100)}px`,
+                  height: `${pageHeight * (zoom / 100)}px`,
+                  backgroundColor: 'white',
+                  display: 'flex',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  boxShadow: 'inset 15px 0 30px rgba(0,0,0,0.15)',
+                  cursor: zoom > 100 ? 'inherit' : ((rightPage && rightPage < totalPages) ? 'pointer' : 'default'),
+                  position: 'relative',
+                  transformOrigin: 'left center',
+                  transform: isFlipping && flipDirection === 'next'
+                    ? 'rotateY(-180deg) translateZ(2px)'
+                    : 'rotateY(0deg)',
+                  transition: flipDirection !== null ? 'transform 1s cubic-bezier(0.4, 0.0, 0.2, 1)' : 'none',
+                  zIndex: isFlipping && flipDirection === 'next' ? 10 : 1,
+                  overflow: 'hidden',
+                  pointerEvents: zoom > 100 ? 'none' : 'auto'
+                }}
+              >
+                <Document
+                  file={rightPagePdf}
+                  onLoadError={(error) => {
+                    console.error('PDF読み込みエラー (右ページ):', error);
+                  }}
+                >
+                  <Page
+                    pageNumber={1}
+                    width={pageWidth * (zoom / 100)}
+                    rotate={rotation}
+                    renderTextLayer={false}
+                    renderAnnotationLayer={false}
+                  />
+                </Document>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="page-controls" style={{
+          position: 'absolute',
+          bottom: '10px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          gap: '10px',
+          padding: '5px 16px',
+          backgroundColor: '#ffffff',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+          border: '1px solid #e5e7eb',
+          zIndex: 100
+        }}>
+          <button
+            className="page-nav-btn"
+            onClick={handlePrevPage}
+            disabled={internalPage <= 1}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '6px 12px',
+              fontSize: '13px',
+              fontWeight: '500',
+              color: internalPage <= 1 ? '#999' : '#333',
+              backgroundColor: internalPage <= 1 ? '#e0e0e0' : 'white',
+              border: '1px solid #ddd',
+              borderRadius: '6px',
+              cursor: internalPage <= 1 ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
+              boxShadow: internalPage <= 1 ? 'none' : '0 1px 3px rgba(0,0,0,0.1)'
+            }}
+          >
+            <ChevronLeft size={18} />
+            前のページ
+          </button>
+
+          <div className="page-info" style={{
+            padding: '6px 16px',
+            fontSize: '14px',
+            fontWeight: 'bold',
+            color: '#333',
+            backgroundColor: 'white',
+            border: '1px solid #ddd',
+            borderRadius: '6px',
+            minWidth: '100px',
+            textAlign: 'center',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+          }}>
+            <span>{leftPage}{rightPage ? `-${rightPage}` : ''} / {totalPages}</span>
+          </div>
+
+          <button
+            className="page-nav-btn"
+            onClick={handleNextPage}
+            disabled={!rightPage || rightPage >= totalPages}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              padding: '6px 12px',
+              fontSize: '13px',
+              fontWeight: '500',
+              color: (!rightPage || rightPage >= totalPages) ? '#999' : '#333',
+              backgroundColor: (!rightPage || rightPage >= totalPages) ? '#e0e0e0' : 'white',
+              border: '1px solid #ddd',
+              borderRadius: '6px',
+              cursor: (!rightPage || rightPage >= totalPages) ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s',
+              boxShadow: (!rightPage || rightPage >= totalPages) ? 'none' : '0 1px 3px rgba(0,0,0,0.1)'
+            }}
+          >
+            次のページ
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // PDFファイルがある場合（originalFileまたはpdfUrl）
   if (document.originalFile || document.pdfUrl) {
     // pdfUrlの場合はURL encodeが必要（日本語文字対応）
@@ -191,8 +436,53 @@ const SpreadView: React.FC<SpreadViewProps> = ({
       );
       pdfSource = encodedParts.join('/');
     }
+
+    // カラーラベルの色を取得
+    const getBookColor = (color?: string) => {
+      const colorMap: Record<string, string> = {
+        blue: '#3b82f6',
+        green: '#10b981',
+        red: '#ef4444',
+        yellow: '#f59e0b',
+        purple: '#8b5cf6',
+      };
+      return colorMap[color || 'blue'] || colorMap.blue;
+    };
+
     return (
       <div className="spread-viewer">
+        {/* バインダ名表示 */}
+        <div style={{
+          position: 'absolute',
+          top: '16px',
+          right: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          zIndex: 10,
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
+          padding: '6px 12px',
+          borderRadius: '6px',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+          border: '1px solid #e5e7eb'
+        }}>
+          {document.color && (
+            <div style={{
+              width: '16px',
+              height: '16px',
+              backgroundColor: getBookColor(document.color),
+              borderRadius: '2px'
+            }} />
+          )}
+          <span style={{
+            fontSize: '13px',
+            fontWeight: '600',
+            color: '#374151'
+          }}>
+            {document.name}
+          </span>
+        </div>
+
         <Document
           file={pdfSource}
           onLoadSuccess={({ numPages }) => {
@@ -218,12 +508,14 @@ const SpreadView: React.FC<SpreadViewProps> = ({
               width: '100%',
               height: '100%',
               display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              padding: '0',
+              justifyContent: zoom > 100 ? 'flex-start' : 'center',
+              alignItems: zoom > 100 ? 'flex-start' : 'center',
+              padding: '40px 0 80px 0',
               perspective: '3000px',
-              overflow: 'hidden'
-            }}>
+              overflow: zoom > 100 ? 'auto' : 'hidden',
+              position: 'relative'
+            }}
+            >
               <div style={{
                 position: 'relative',
                 display: 'flex',
@@ -231,21 +523,22 @@ const SpreadView: React.FC<SpreadViewProps> = ({
                 borderRadius: '12px',
                 overflow: 'visible',
                 transformStyle: 'preserve-3d',
-                maxWidth: '100%'
+                maxWidth: zoom > 100 ? 'none' : '100%',
+                margin: zoom > 100 ? '0' : 'auto'
               }}>
                 {/* 左ページ */}
                 <div
                   onClick={handleLeftPageClick}
                   style={{
                     width: `${pageWidth * (zoom / 100)}px`,
-                    height: `${pageHeight}px`,
+                    height: `${pageHeight * (zoom / 100)}px`,
                     backgroundColor: 'white',
                     display: 'flex',
                     justifyContent: 'center',
                     alignItems: 'center',
                     borderRight: '2px solid #ccc',
                     boxShadow: 'inset -15px 0 30px rgba(0,0,0,0.15)',
-                    cursor: internalPage > 1 ? 'pointer' : 'default',
+                    cursor: zoom > 100 ? 'inherit' : (internalPage > 1 ? 'pointer' : 'default'),
                     position: 'relative',
                     transformOrigin: 'right center',
                     transform: isFlipping && flipDirection === 'prev'
@@ -253,7 +546,8 @@ const SpreadView: React.FC<SpreadViewProps> = ({
                       : 'rotateY(0deg)',
                     transition: flipDirection !== null ? 'transform 1s cubic-bezier(0.4, 0.0, 0.2, 1)' : 'none',
                     zIndex: isFlipping && flipDirection === 'prev' ? 10 : 1,
-                    overflow: 'hidden'
+                    overflow: 'hidden',
+                    pointerEvents: zoom > 100 ? 'none' : 'auto'
                   }}
                 >
                   <Page
@@ -271,13 +565,13 @@ const SpreadView: React.FC<SpreadViewProps> = ({
                     onClick={handleRightPageClick}
                     style={{
                       width: `${pageWidth * (zoom / 100)}px`,
-                      height: `${pageHeight}px`,
+                      height: `${pageHeight * (zoom / 100)}px`,
                       backgroundColor: 'white',
                       display: 'flex',
                       justifyContent: 'center',
                       alignItems: 'center',
                       boxShadow: 'inset 15px 0 30px rgba(0,0,0,0.15)',
-                      cursor: (rightPage && rightPage < totalPages) ? 'pointer' : 'default',
+                      cursor: zoom > 100 ? 'inherit' : ((rightPage && rightPage < totalPages) ? 'pointer' : 'default'),
                       position: 'relative',
                       transformOrigin: 'left center',
                       transform: isFlipping && flipDirection === 'next'
@@ -285,7 +579,8 @@ const SpreadView: React.FC<SpreadViewProps> = ({
                         : 'rotateY(0deg)',
                       transition: flipDirection !== null ? 'transform 1s cubic-bezier(0.4, 0.0, 0.2, 1)' : 'none',
                       zIndex: isFlipping && flipDirection === 'next' ? 10 : 1,
-                      overflow: 'hidden'
+                      overflow: 'hidden',
+                      pointerEvents: zoom > 100 ? 'none' : 'auto'
                     }}
                   >
                     <Page
@@ -303,13 +598,20 @@ const SpreadView: React.FC<SpreadViewProps> = ({
         </Document>
 
         <div className="page-controls" style={{
+          position: 'absolute',
+          bottom: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
           display: 'flex',
           justifyContent: 'center',
           alignItems: 'center',
           gap: '10px',
-          padding: '12px 8px',
-          backgroundColor: 'rgba(245, 245, 245, 0.95)',
-          borderTop: '1px solid #ddd'
+          padding: '10px 16px',
+          backgroundColor: '#ffffff',
+          borderRadius: '8px',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+          border: '1px solid #e5e7eb',
+          zIndex: 100
         }}>
           <button
             className="page-nav-btn"
@@ -379,15 +681,59 @@ const SpreadView: React.FC<SpreadViewProps> = ({
   }
 
   // テキストコンテンツの場合
+  // カラーラベルの色を取得
+  const getBookColor = (color?: string) => {
+    const colorMap: Record<string, string> = {
+      blue: '#3b82f6',
+      green: '#10b981',
+      red: '#ef4444',
+      yellow: '#f59e0b',
+      purple: '#8b5cf6',
+    };
+    return colorMap[color || 'blue'] || colorMap.blue;
+  };
+
   return (
     <div className="spread-viewer">
+      {/* バインダ名表示 */}
+      <div style={{
+        position: 'absolute',
+        top: '16px',
+        right: '20px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        zIndex: 10,
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        padding: '6px 12px',
+        borderRadius: '6px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+        border: '1px solid #e5e7eb'
+      }}>
+        {document.color && (
+          <div style={{
+            width: '16px',
+            height: '16px',
+            backgroundColor: getBookColor(document.color),
+            borderRadius: '2px'
+          }} />
+        )}
+        <span style={{
+          fontSize: '13px',
+          fontWeight: '600',
+          color: '#374151'
+        }}>
+          {document.name}
+        </span>
+      </div>
+
       <div className="spread-book-container" style={{
         width: '100%',
         height: '100%',
         display: 'flex',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: '0',
+        padding: '40px 0 80px 0',
         perspective: '3000px',
         overflow: 'hidden'
       }}>

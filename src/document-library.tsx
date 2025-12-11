@@ -1,12 +1,11 @@
-import { useState, useRef, useEffect, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, ChevronDown, Folder, FolderOpen, File, Image, FileText, Video, X, Search, Upload, Download, Book, Plus, FolderPlus, Trash2, Printer, MoreVertical, Edit3, FilePlus, MoveRight, FolderInput, Grid, Trash, RotateCcw } from 'lucide-react';
-import { Document, Page, pdfjs } from 'react-pdf';
+import { Archive, Book, ChevronDown, ChevronLeft, ChevronRight, Download, Edit3, File, FilePlus, FileText, Folder, FolderOpen, FolderPlus, Image, MoreVertical, MoveRight, Minus, Plus, Printer, RotateCcw, Search, Trash, Trash2, Upload, X, ZoomIn, ZoomOut } from 'lucide-react';
 import mammoth from 'mammoth';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Document, Page, pdfjs } from 'react-pdf';
 import * as XLSX from 'xlsx';
-import type { LibraryData, DocumentNode, FolderNode, CabinetNode, TreeNode, Breadcrumb, DeleteTarget, DragState } from './types';
 import BookshelfView from './components/BookshelfView';
 import SpreadView from './components/SpreadView';
-import FolderListView from './components/FolderListView';
+import type { CabinetNode, DeleteTarget, DocumentNode, DragState, FolderNode, LibraryData, TreeNode } from './types';
 // react-pdf の Annotation/Text レイヤーは無効化しているため、CSSのインポートは不要です。
 // （renderTextLayer={false}、renderAnnotationLayer={false}）
 
@@ -630,25 +629,24 @@ const styles = `
   /* 本のカード - 本の背表紙スタイル */
   .book-card {
     background: #ffffff;
-    border-radius: 14px;
-    padding: 20px 16px;
+    border-radius: 0;
+    padding: 20px 20px;
     cursor: pointer;
     transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.05);
+    border: 1px solid #cccccc;
     position: relative;
     width: auto;
-    min-width: 60px;
-    min-height: 200px;
+    min-width: 90px;
+    height: 200px;
     max-width: fit-content;
-    height: auto;
     display: inline-block;
     color: #474747;
-    overflow: visible;
+    overflow: hidden;
   }
 
   .book-card:hover {
     transform: scale(1.05);
-    box-shadow: 0px 0px 40px rgba(69, 85, 81, 0.3);
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.2);
   }
 
   .book-title-vertical {
@@ -661,13 +659,16 @@ const styles = `
     font-weight: 500;
     font-family: "Noto Sans JP", -apple-system, BlinkMacSystemFont, sans-serif;
     color: #474747;
+    max-height: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .book-spine-bottom {
     text-align: center;
-    padding-top: 24px;
+    padding-top: 10px;
     border-top: 1px dashed #d5d5d5;
-    margin-top: 24px;
+    margin-top: 10px;
     line-height: 1.6em;
     font-size: 11px;
     color: #949494;
@@ -743,7 +744,7 @@ const styles = `
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    padding: 20px;
+    padding: 10px;
     background: transparent;
     height: 100%;
     min-height: 100%;
@@ -913,244 +914,566 @@ const mockData: LibraryData = {
   children: [
     {
       id: 'cabinet1',
-      name: '技術資料',
+      name: 'キャビネット',
       type: 'cabinet',
       expanded: true,
       children: [
         {
           id: 'folder1-1',
-          name: 'プログラミング',
+          name: '総務部',
           type: 'folder',
           expanded: false,
-          color: 'blue',
           children: [
             {
-              id: 'd1',
-              name: 'React入門ガイド',
-              type: 'document',
-              color: 'blue',
-              pages: [
-                { type: 'text', content: 'React入門ガイド\n\n第1章：はじめに\n\nReactは、ユーザーインターフェースを構築するためのJavaScriptライブラリです。Facebookによって開発され、現在では世界中で広く使用されています。\n\nコンポーネントベースのアーキテクチャにより、再利用可能なUIパーツを作成できます。' },
-                { type: 'text', content: '第2章：コンポーネント\n\nReactの核心はコンポーネントです。コンポーネントは、UIを独立した再利用可能な部品に分割します。\n\n【コンポーネントの種類】\n・関数コンポーネント\n・クラスコンポーネント\n\nモダンなReact開発では、関数コンポーネントとHooksの使用が推奨されています。' },
-                { type: 'text', content: '第3章：State と Props\n\nStateはコンポーネントの内部状態を管理します。Propsは親コンポーネントから子コンポーネントにデータを渡すために使用されます。\n\n【Stateの更新】\nuseState Hookを使用することで、関数コンポーネント内で状態管理が可能になります。' },
-                { type: 'text', content: '第4章：Hooks\n\nReact Hooksは、関数コンポーネントで状態やライフサイクル機能を使用するための機能です。\n\n主なHooks:\n・useState\n・useEffect\n・useContext\n・useReducer\n・useCallback\n・useMemo' }
-              ]
-            },
-            {
-              id: 'd2',
-              name: 'TypeScript基礎',
-              type: 'document',
-              color: 'purple',
-              pages: [
-                { type: 'text', content: 'TypeScript基礎\n\n目次\n1. TypeScriptとは\n2. 型システム\n3. インターフェース\n4. ジェネリクス\n5. デコレータ\n\nTypeScriptは、JavaScriptのスーパーセットです。' },
-                { type: 'text', content: '1. TypeScriptとは\n\nTypeScriptは、JavaScriptに静的型付けを追加した言語です。Microsoftによって開発されました。\n\nコンパイル時に型チェックを行うことで、バグを事前に発見できます。' },
-                { type: 'text', content: '2. 型システム\n\nTypeScriptの型システムは非常に強力です。\n\n基本型:\n・string\n・number\n・boolean\n・array\n・tuple\n・enum\n・any\n・void' }
-              ]
-            },
-            {
-              id: 'd2-1',
-              name: 'JavaScript応用',
-              type: 'document',
-              color: 'yellow',
-              pages: [
-                { type: 'text', content: 'JavaScript応用\n\n第1章：非同期処理\n\nPromise、async/awaitを使った非同期プログラミングをマスターしましょう。' },
-                { type: 'text', content: '第2章：モジュールシステム\n\nES Modulesを使ったコードの整理と再利用について学びます。' }
-              ]
-            },
-            {
-              id: 'd2-2',
-              name: 'Python入門',
-              type: 'document',
-              color: 'green',
-              pages: [
-                { type: 'text', content: 'Python入門\n\nPythonは読みやすく、書きやすいプログラミング言語です。\n\nデータ分析、機械学習、Web開発など幅広い分野で使用されています。' },
-                { type: 'text', content: '基本文法\n\n変数の宣言、制御構文、関数定義など、Pythonの基本を学びます。' }
-              ]
-            },
-            {
-              id: 'd2-3',
-              name: 'Goプログラミング',
-              type: 'document',
-              color: 'blue',
-              pages: [
-                { type: 'text', content: 'Goプログラミング\n\nGoは、Googleが開発した高速でシンプルなプログラミング言語です。\n\n並行処理が得意で、サーバーサイド開発に最適です。' },
-                { type: 'text', content: 'Goroutineとチャネル\n\nGoの強力な並行処理機能について学びます。' }
-              ]
-            },
-            {
-              id: 'd2-4',
-              name: 'Rustで学ぶシステムプログラミング',
-              type: 'document',
-              color: 'red',
-              pages: [
-                { type: 'text', content: 'Rustで学ぶシステムプログラミング\n\nRustは、安全性とパフォーマンスを両立したシステムプログラミング言語です。\n\n所有権システムにより、メモリ安全性を保証します。' },
-                { type: 'text', content: '所有権とライフタイム\n\nRustの最も重要な概念である所有権について深く学びます。' }
-              ]
-            },
-            {
-              id: 'd2-5',
-              name: 'Webパフォーマンス最適化',
-              type: 'document',
-              color: 'purple',
-              pages: [
-                { type: 'text', content: 'Webパフォーマンス最適化\n\nWebサイトの読み込み速度を改善し、ユーザー体験を向上させる技術を学びます。\n\nCore Web Vitals、画像最適化、コード分割など。' },
-                { type: 'text', content: 'パフォーマンス計測\n\nLighthouse、WebPageTestなどのツールを使った計測方法を紹介します。' }
-              ]
-            },
-            {
-              id: 'd2-6',
-              name: 'データ構造とアルゴリズム',
-              type: 'document',
-              color: 'yellow',
-              pages: [
-                { type: 'text', content: 'データ構造とアルゴリズム\n\n効率的なプログラムを書くための基礎知識です。\n\n配列、リスト、木構造、グラフ、ソートアルゴリズムなど。' },
-                { type: 'text', content: '計算量解析\n\nBig O記法を使った計算量の評価方法を学びます。' }
-              ]
-            },
-            {
-              id: 'd2-7',
-              name: '関数型プログラミング入門',
-              type: 'document',
-              color: 'green',
-              pages: [
-                { type: 'text', content: '関数型プログラミング入門\n\n副作用のない純粋関数、イミュータブルなデータ構造など、関数型プログラミングの考え方を学びます。' },
-                { type: 'text', content: '高階関数とクロージャ\n\nmap、filter、reduceなどの高階関数の使い方をマスターします。' }
-              ]
-            },
-            {
-              id: 'd2-8',
-              name: 'テスト駆動開発実践',
-              type: 'document',
-              color: 'blue',
-              pages: [
-                { type: 'text', content: 'テスト駆動開発実践\n\nTDD（Test-Driven Development）は、テストを先に書いてからコードを実装する開発手法です。\n\nRed-Green-Refactorのサイクル。' },
-                { type: 'text', content: 'ユニットテストの書き方\n\nJest、Mocha、Pytestなど、各言語のテストフレームワークを紹介します。' }
-              ]
-            },
-            {
-              id: 'd2-9',
-              name: 'クリーンコード',
-              type: 'document',
-              color: 'red',
-              pages: [
-                { type: 'text', content: 'クリーンコード\n\n読みやすく、保守しやすいコードを書くための原則とテクニック。\n\n命名規則、関数の分割、コメントの書き方など。' },
-                { type: 'text', content: 'リファクタリング\n\n既存のコードを改善するための手法を学びます。' }
-              ]
-            },
-            {
-              id: 'd2-10',
-              name: 'デザインパターン',
-              type: 'document',
-              color: 'purple',
-              pages: [
-                { type: 'text', content: 'デザインパターン\n\nソフトウェア設計における典型的な問題に対する再利用可能な解決策。\n\nGoFの23パターンを中心に学びます。' },
-                { type: 'text', content: '主要パターン\n\nSingleton、Factory、Observer、Strategy、Decoratorなど、よく使われるパターンを紹介します。' }
+              id: 'folder1-1-1',
+              name: '人事関連',
+              type: 'folder',
+              expanded: false,
+              children: [
+                {
+                  id: 'd11',
+                  name: '就業規則',
+                  type: 'document',
+                  color: 'blue',
+                  pdfUrl: '/files/001018385.pdf',
+                  pages: []
+                },
+                {
+                  id: 'd1',
+                  name: '採用',
+                  type: 'document',
+                  color: 'green',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf',
+                    '/files/rirekisyo_a4_career4.pdf',
+                    '/files/rirekisyo_a4_career5.pdf',
+                    '/files/rirekisyo_a4_career6.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd2',
+                  name: '面接記録',
+                  type: 'document',
+                  color: 'blue',
+                  pdfPages: [
+                    '/files/interview_evaluation02.pdf',
+                    '/files/interview_evaluation03.pdf',
+                    '/files/interview_evaluation04.pdf',
+                    '/files/interview_evaluation02.pdf',
+                    '/files/interview_evaluation03.pdf',
+                    '/files/interview_evaluation04.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd3',
+                  name: '入社手続き',
+                  type: 'document',
+                  color: 'purple',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf',
+                    '/files/rirekisyo_a4_career4.pdf',
+                    '/files/rirekisyo_a4_career5.pdf',
+                    '/files/rirekisyo_a4_career6.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd4',
+                  name: '退職手続き',
+                  type: 'document',
+                  color: 'red',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd5',
+                  name: '人事評価',
+                  type: 'document',
+                  color: 'yellow',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf',
+                    '/files/rirekisyo_a4_career4.pdf',
+                    '/files/rirekisyo_a4_career5.pdf',
+                    '/files/rirekisyo_a4_career6.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd6',
+                  name: '研修記録',
+                  type: 'document',
+                  color: 'blue',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf',
+                    '/files/rirekisyo_a4_career4.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd7',
+                  name: '勤怠管理',
+                  type: 'document',
+                  color: 'green',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd8',
+                  name: '給与計算',
+                  type: 'document',
+                  color: 'purple',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf',
+                    '/files/rirekisyo_a4_career4.pdf',
+                    '/files/rirekisyo_a4_career5.pdf',
+                    '/files/rirekisyo_a4_career6.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd9',
+                  name: '社会保険',
+                  type: 'document',
+                  color: 'red',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf',
+                    '/files/rirekisyo_a4_career4.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd10',
+                  name: '労働契約',
+                  type: 'document',
+                  color: 'yellow',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf',
+                    '/files/rirekisyo_a4_career4.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd12',
+                  name: '昇進昇格',
+                  type: 'document',
+                  color: 'green',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf',
+                    '/files/rirekisyo_a4_career4.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd13',
+                  name: '異動記録',
+                  type: 'document',
+                  color: 'purple',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf',
+                    '/files/rirekisyo_a4_career4.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd14',
+                  name: '休暇申請',
+                  type: 'document',
+                  color: 'red',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf',
+                    '/files/rirekisyo_a4_career4.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd15',
+                  name: '健康診断',
+                  type: 'document',
+                  color: 'yellow',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf',
+                    '/files/rirekisyo_a4_career4.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd16',
+                  name: '福利厚生',
+                  type: 'document',
+                  color: 'blue',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf',
+                    '/files/rirekisyo_a4_career4.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd17',
+                  name: '雇用契約',
+                  type: 'document',
+                  color: 'green',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf',
+                    '/files/rirekisyo_a4_career4.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd18',
+                  name: '賞罰記録',
+                  type: 'document',
+                  color: 'purple',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf',
+                    '/files/rirekisyo_a4_career4.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd19',
+                  name: '退職者管理',
+                  type: 'document',
+                  color: 'red',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf',
+                    '/files/rirekisyo_a4_career4.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd20',
+                  name: '派遣社員管理',
+                  type: 'document',
+                  color: 'yellow',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf',
+                    '/files/rirekisyo_a4_career4.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd21',
+                  name: '正社員管理',
+                  type: 'document',
+                  color: 'blue',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf',
+                    '/files/rirekisyo_a4_career4.pdf'
+                  ],
+                  pages: []
+                }
               ]
             }
           ]
         },
         {
           id: 'folder1-2',
-          name: 'デザイン',
+          name: '営業部',
           type: 'folder',
           expanded: false,
-          color: 'purple',
           children: [
             {
-              id: 'd3',
-              name: 'UI/UXガイドライン',
-              type: 'document',
-              color: 'green',
-              pages: [
-                { type: 'text', content: 'UI/UXガイドライン\n\n【基本原則】\n\n1. ユーザー中心設計\n2. 一貫性の維持\n3. フィードバックの提供\n4. エラー防止\n5. 柔軟性と効率性' },
-                { type: 'text', content: 'カラーシステム\n\nプライマリカラー: #0066CC\nセカンダリカラー: #4CAF50\n背景色: #F5F5F5\nテキスト: #333333\n\nアクセシビリティを考慮したコントラスト比を確保してください。' }
+              id: 'folder1-2-1',
+              name: '顧客管理',
+              type: 'folder',
+              expanded: false,
+              children: [
+                {
+                  id: 'd22-rules',
+                  name: '就業規則',
+                  type: 'document',
+                  color: 'blue',
+                  pdfUrl: '/files/001018385.pdf',
+                  pages: []
+                },
+                {
+                  id: 'd22',
+                  name: '新規顧客',
+                  type: 'document',
+                  color: 'blue',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd23',
+                  name: '既存顧客',
+                  type: 'document',
+                  color: 'green',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd24',
+                  name: '顧客訪問記録',
+                  type: 'document',
+                  color: 'yellow',
+                  pdfPages: ['/files/rirekisyo_a4_career.pdf'],
+                  pages: []
+                }
               ]
             },
             {
-              id: 'd3-1',
-              name: 'ワイヤーフレーム',
-              type: 'document',
-              color: 'pink',
-              pages: [
-                { type: 'image', url: 'invalid-image-url.jpg' },
-                { type: 'image', url: 'another-invalid-image.png' }
+              id: 'folder1-2-2',
+              name: '営業実績',
+              type: 'folder',
+              expanded: false,
+              children: [
+                {
+                  id: 'd25-rules',
+                  name: '就業規則',
+                  type: 'document',
+                  color: 'blue',
+                  pdfUrl: '/files/001018385.pdf',
+                  pages: []
+                },
+                {
+                  id: 'd25',
+                  name: '売上報告',
+                  type: 'document',
+                  color: 'red',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf',
+                    '/files/rirekisyo_a4_career4.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd26',
+                  name: '案件進捗',
+                  type: 'document',
+                  color: 'purple',
+                  pdfPages: ['/files/rirekisyo_a4_career.pdf'],
+                  pages: []
+                },
+                {
+                  id: 'd27',
+                  name: '月次報告',
+                  type: 'document',
+                  color: 'blue',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd28',
+                  name: '四半期報告',
+                  type: 'document',
+                  color: 'green',
+                  pdfPages: ['/files/rirekisyo_a4_career.pdf'],
+                  pages: []
+                }
               ]
             }
           ]
-        }
-      ]
-    },
-    {
-      id: 'cabinet2',
-      name: 'プロジェクト資料',
-      type: 'cabinet',
-      expanded: false,
-      children: [
+        },
         {
-          id: 'folder2-1',
-          name: '2024年度',
+          id: 'folder1-3',
+          name: '経理部',
           type: 'folder',
           expanded: false,
-          color: 'green',
           children: [
             {
-              id: 'd4',
-              name: '埼玉県DX推進支援ネットワーク',
-              type: 'document',
-              color: 'orange',
-              pdfUrl: '/files/埼玉県DX推進支援ネットワーク _ プロジェクト詳細.pdf',
-              pages: []
+              id: 'folder1-3-1',
+              name: '会計処理',
+              type: 'folder',
+              expanded: false,
+              children: [
+                {
+                  id: 'd29-rules',
+                  name: '就業規則',
+                  type: 'document',
+                  color: 'blue',
+                  pdfUrl: '/files/001018385.pdf',
+                  pages: []
+                },
+                {
+                  id: 'd29',
+                  name: '仕訳帳',
+                  type: 'document',
+                  color: 'blue',
+                  pdfPages: [
+                    '/files/shiwake01.pdf',
+                    '/files/shiwake01.pdf',
+                    '/files/shiwake01.pdf',
+                    '/files/shiwake01.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd30',
+                  name: '総勘定元帳',
+                  type: 'document',
+                  color: 'green',
+                  pdfPages: ['/files/rirekisyo_a4_career.pdf'],
+                  pages: []
+                },
+                {
+                  id: 'd31',
+                  name: '試算表',
+                  type: 'document',
+                  color: 'yellow',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf'
+                  ],
+                  pages: []
+                }
+              ]
             },
             {
-              id: 'd5',
-              name: 'DifyとLINE連携ガイド',
-              type: 'document',
-              color: 'blue',
-              pdfUrl: '/files/【Dify×LINE】DifyとLINEを連携させよう　GASコード付き！【エージェント編】｜AI BOOTCAMP 公式note.pdf',
-              pages: []
+              id: 'folder1-3-2',
+              name: '決算資料',
+              type: 'folder',
+              expanded: false,
+              children: [
+                {
+                  id: 'd32-rules',
+                  name: '就業規則',
+                  type: 'document',
+                  color: 'blue',
+                  pdfUrl: '/files/001018385.pdf',
+                  pages: []
+                },
+                {
+                  id: 'd32',
+                  name: '貸借対照表',
+                  type: 'document',
+                  color: 'red',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd33',
+                  name: '損益計算書',
+                  type: 'document',
+                  color: 'purple',
+                  pdfPages: ['/files/rirekisyo_a4_career.pdf'],
+                  pages: []
+                },
+                {
+                  id: 'd34',
+                  name: 'キャッシュフロー',
+                  type: 'document',
+                  color: 'blue',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf',
+                    '/files/rirekisyo_a4_career3.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd35',
+                  name: '注記表',
+                  type: 'document',
+                  color: 'green',
+                  pdfPages: ['/files/rirekisyo_a4_career.pdf'],
+                  pages: []
+                }
+              ]
             },
             {
-              id: 'd5-1',
-              name: 'コンセプトメイキング攻略',
-              type: 'document',
-              color: 'purple',
-              pdfUrl: '/files/吉原様_コンセプトメイキング攻略.pdf',
-              pages: []
-            },
-            {
-              id: 'd5-2',
-              name: '履歴書01',
-              type: 'document',
-              color: 'green',
-              pdfUrl: '/files/pdf_resume01.pdf',
-              pages: []
-            }
-          ]
-        }
-      ]
-    },
-    {
-      id: 'cabinet3',
-      name: '会議資料',
-      type: 'cabinet',
-      expanded: false,
-      children: [
-        {
-          id: 'folder3-1',
-          name: '経営会議',
-          type: 'folder',
-          expanded: false,
-          color: 'red',
-          children: [
-            {
-              id: 'd6',
-              name: '2024年度計画',
-              type: 'document',
-              color: 'yellow',
-              pages: [
-                { type: 'text', content: '2024年度 事業計画\n\n【重点施策】\n\n1. デジタルトランスフォーメーションの推進\n2. 顧客体験の向上\n3. 業務効率化\n4. 人材育成\n\n各施策について詳細を説明します。' },
-                { type: 'text', content: '第1四半期の目標\n\n【4月】\n・新システムの導入準備\n・チーム体制の見直し\n\n【5月】\n・顧客満足度調査の実施\n・研修プログラムの開始\n\n【6月】\n・中間評価と軌道修正' },
-                { type: 'text', content: '予算配分\n\nシステム開発: 40%（2,000万円）\nマーケティング: 30%（1,500万円）\n人材育成: 20%（1,000万円）\nその他: 10%（500万円）\n\n合計: 5,000万円' }
+              id: 'folder1-3-3',
+              name: '税務資料',
+              type: 'folder',
+              expanded: false,
+              children: [
+                {
+                  id: 'd36-rules',
+                  name: '就業規則',
+                  type: 'document',
+                  color: 'blue',
+                  pdfUrl: '/files/001018385.pdf',
+                  pages: []
+                },
+                {
+                  id: 'd36',
+                  name: '法人税申告書',
+                  type: 'document',
+                  color: 'yellow',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf'
+                  ],
+                  pages: []
+                },
+                {
+                  id: 'd37',
+                  name: '消費税申告書',
+                  type: 'document',
+                  color: 'red',
+                  pdfPages: ['/files/rirekisyo_a4_career.pdf'],
+                  pages: []
+                },
+                {
+                  id: 'd38',
+                  name: '源泉徴収票',
+                  type: 'document',
+                  color: 'purple',
+                  pdfPages: [
+                    '/files/rirekisyo_a4_career.pdf',
+                    '/files/rirekisyo_a4_career2.pdf'
+                  ],
+                  pages: []
+                }
               ]
             }
           ]
@@ -1178,7 +1501,8 @@ const DocumentLibrary = () => {
     return mockData;
   };
 
-  const [treeData, setTreeData] = useState<LibraryData>(loadFromLocalStorage);
+  // 開発中：最新のmockDataを使用するため、LocalStorageを一時的に無視
+  const [treeData, setTreeData] = useState<LibraryData>(mockData);
   const [selectedDocument, setSelectedDocument] = useState<DocumentNode | null>(null);
   const [currentPage, setCurrentPage] = useState<number>(0);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -1196,7 +1520,7 @@ const DocumentLibrary = () => {
   const [selectedUploadFolder, setSelectedUploadFolder] = useState<TreeNode | null>(null); // アップロード先フォルダ
   const [filteredDocuments, setFilteredDocuments] = useState<DocumentNode[]>([]);
   const [showFilePickerModal, setShowFilePickerModal] = useState<boolean>(false);
-  const [pdfScale] = useState<number>(1.2);
+  const [pdfScale, setPdfScale] = useState<number>(1.2);
   const [isDraggingFile, setIsDraggingFile] = useState<boolean>(false); // ドラッグ&ドロップ状態
 
   // 本棚UI用の状態
@@ -1208,6 +1532,13 @@ const DocumentLibrary = () => {
   // 削除確認モーダルの状態
   const [showDeleteModal, setShowDeleteModal] = useState<boolean>(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null); // { type: 'folder' | 'document', id: string, name: string }
+
+  // バインダ作成モーダルの状態
+  const [showCreateBookModal, setShowCreateBookModal] = useState<boolean>(false);
+  const [bookFiles, setBookFiles] = useState<File[]>([]);
+  const [bookName, setBookName] = useState<string>('');
+  const [bookColor, setBookColor] = useState<string>('blue');
+  const [selectedBookFolder, setSelectedBookFolder] = useState<TreeNode | null>(null);
 
   // フォルダメニュー（⋮）の状態
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
@@ -1238,16 +1569,19 @@ const DocumentLibrary = () => {
 
   // 印刷オプションモーダルの状態
   const [showPrintModal, setShowPrintModal] = useState<boolean>(false);
+
+  // 作成ドロップダウンメニューの状態
+  const [showCreateDropdown, setShowCreateDropdown] = useState<boolean>(false);
   const [printOption, setPrintOption] = useState<'current' | 'all' | 'spread' | 'range'>('current');
   const [printRangeStart, setPrintRangeStart] = useState<number>(1);
   const [printRangeEnd, setPrintRangeEnd] = useState<number>(1);
 
   // ナビゲーション用の状態
   const [selectedParentFolder, setSelectedParentFolder] = useState<TreeNode | null>(null);
-  const [breadcrumbs, setBreadcrumbs] = useState<Breadcrumb[]>([{ name: 'ライブラリ', id: null }]);
 
   // サイドバー用の状態
   const [expandedCabinets, setExpandedCabinets] = useState<Set<string>>(new Set());
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
   // フォルダの色オプション
@@ -1272,6 +1606,24 @@ const DocumentLibrary = () => {
 
   const viewerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ドロップダウンメニューの外側をクリックしたときに閉じる
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showCreateDropdown) {
+        const target = event.target as HTMLElement;
+        // ドロップダウンメニューの外側をクリックした場合
+        if (!target.closest('.create-dropdown')) {
+          setShowCreateDropdown(false);
+        }
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showCreateDropdown]);
 
   // treeDataが変更されるたびにLocalStorageに保存
   useEffect(() => {
@@ -1313,7 +1665,6 @@ const DocumentLibrary = () => {
       setSelectedParentFolder(null);
       setCurrentFolder(null);
       setSelectedDocument(null);
-      setBreadcrumbs([{ name: 'ライブラリ', id: null }]);
       return;
     }
 
@@ -1325,10 +1676,6 @@ const DocumentLibrary = () => {
       const cabinet = treeData.children.find(c => c.id === cabinetId);
       if (cabinet) {
         setSelectedParentFolder(cabinet);
-        setBreadcrumbs([
-          { name: 'ライブラリ', id: null },
-          { name: cabinet.name, id: cabinet.id }
-        ]);
 
         // /cabinet/:cabinetId/folder/:folderId
         if (parts.length >= 4 && parts[2] === 'folder') {
@@ -1336,11 +1683,6 @@ const DocumentLibrary = () => {
           const folder = cabinet.children.find(f => f.id === folderId);
           if (folder) {
             setCurrentFolder(folder);
-            setBreadcrumbs([
-              { name: 'ライブラリ', id: null },
-              { name: cabinet.name, id: cabinet.id },
-              { name: folder.name, id: folder.id }
-            ]);
           }
         }
       }
@@ -1895,38 +2237,10 @@ const DocumentLibrary = () => {
   const handleParentFolderClick = (folder) => {
     setSelectedParentFolder(folder);
     setCurrentFolder(null);
-    setBreadcrumbs([
-      { name: 'ライブラリ', id: null },
-      { name: folder.name, id: folder.id }
-    ]);
   };
 
   const handleChildFolderClick = (childFolder) => {
     setCurrentFolder(childFolder);
-    if (selectedParentFolder) {
-      setBreadcrumbs([
-        { name: 'ライブラリ', id: null },
-        { name: selectedParentFolder.name, id: selectedParentFolder.id },
-        { name: childFolder.name, id: childFolder.id }
-      ]);
-    }
-  };
-
-  const handleBreadcrumbClick = (index) => {
-    const crumb = breadcrumbs[index];
-    if (index === 0) {
-      // ライブラリルート
-      setSelectedParentFolder(null);
-      setCurrentFolder(null);
-      setBreadcrumbs([{ name: 'ライブラリ', id: null }]);
-    } else if (index === 1) {
-      // 親フォルダ（キャビネット）
-      const parent = treeData.children.find(n => n.id === crumb.id);
-      if (parent) {
-        handleParentFolderClick(parent);
-      }
-    }
-    // index === 2 は現在のフォルダなので何もしない
   };
 
   const getBinderColor = (color) => {
@@ -1977,6 +2291,28 @@ const DocumentLibrary = () => {
     }
 
     return folders;
+  };
+
+  // 全てのバインダ（Document）を取得
+  const getAllBinders = () => {
+    const binders: DocumentNode[] = [];
+
+    const collectBinders = (nodes: TreeNode[]) => {
+      for (const node of nodes) {
+        if (node.type === 'document') {
+          binders.push(node as DocumentNode);
+        }
+        if ('children' in node && node.children) {
+          collectBinders(node.children);
+        }
+      }
+    };
+
+    if (treeData && treeData.children) {
+      collectBinders(treeData.children);
+    }
+
+    return binders;
   };
 
   // ファイルアップロード処理 - 直接アップロード
@@ -2509,6 +2845,106 @@ const DocumentLibrary = () => {
     });
   };
 
+  // バインダにページを追加（既存のバインダに新しいPDFページを追加）
+  const addPagesToBinder = async () => {
+    if (bookFiles.length === 0) {
+      alert('PDFファイルを選択してください');
+      return;
+    }
+    if (!selectedBookFolder) {
+      alert('追加先のバインダを選択してください');
+      return;
+    }
+
+    try {
+      // 新しいページのURLを生成
+      const newPages = bookFiles.map((file) => `/files/${file.name}`);
+
+      // バインダを更新（pdfPagesに追加）
+      const updateBinder = (nodes: TreeNode[]): TreeNode[] => {
+        return nodes.map(node => {
+          if (node.type === 'document' && node.id === selectedBookFolder.id) {
+            const existingPages = (node as DocumentNode).pdfPages || [];
+            return {
+              ...node,
+              pdfPages: [...existingPages, ...newPages]
+            } as DocumentNode;
+          }
+          if ('children' in node && node.children) {
+            return {
+              ...node,
+              children: updateBinder(node.children)
+            };
+          }
+          return node;
+        });
+      };
+
+      setTreeData(prev => ({
+        ...prev,
+        children: updateBinder(prev.children)
+      }));
+
+      // モーダルを閉じてリセット
+      setShowMultiFileModal(false);
+      setBookFiles([]);
+      setSelectedBookFolder(null);
+
+      alert(`バインダ「${(selectedBookFolder as DocumentNode).name}」に${newPages.length}ページを追加しました！`);
+    } catch (error) {
+      console.error('ページ追加エラー:', error);
+      alert(`ページの追加に失敗しました: ${error.message}`);
+    }
+  };
+
+  // バインダを作成（複数PDFファイルを1つのバインダにまとめる）
+  const createBook = async () => {
+    if (!bookName.trim()) {
+      alert('バインダ名を入力してください');
+      return;
+    }
+    if (bookFiles.length === 0) {
+      alert('PDFファイルを選択してください');
+      return;
+    }
+    if (!selectedBookFolder) {
+      alert('保存先フォルダを選択してください');
+      return;
+    }
+
+    try {
+      // 各ファイルをpublic/filesにコピーする想定でURLパスを生成
+      // 実際の実装では、ファイルをアップロードしてURLを取得する必要があります
+      const pdfPages = bookFiles.map((file, index) => {
+        // 簡易的にファイル名をそのまま使用（実際にはサーバーにアップロードする必要があります）
+        return `/files/${file.name}`;
+      });
+
+      const newBook: DocumentNode = {
+        id: `book_${Date.now()}`,
+        name: bookName,
+        type: 'document',
+        color: bookColor,
+        pdfPages: pdfPages,
+        pages: []
+      };
+
+      addDocumentsToFolder(selectedBookFolder.id, [newBook]);
+
+      // モーダルを閉じてリセット
+      setShowCreateBookModal(false);
+      setBookFiles([]);
+      setBookName('');
+      setBookColor('blue');
+      setSelectedBookFolder(null);
+
+      alert(`バインダ「${bookName}」を作成しました！`);
+    } catch (error) {
+      console.error('バインダ作成エラー:', error);
+      alert(`バインダの作成に失敗しました: ${error.message}`);
+    }
+  };
+
   // 新しいフォルダを作成
   const createNewFolder = () => {
     if (!newFolderName.trim()) return;
@@ -2533,11 +2969,11 @@ const DocumentLibrary = () => {
 
   // フォルダ作成モーダルを開く
   const openNewFolderModal = () => {
-    // 現在選択中のキャビネットまたは最初のキャビネットを初期選択
-    const initialParent = (selectedParentFolder && selectedParentFolder.type === 'cabinet')
-      ? selectedParentFolder
-      : (currentFolder && currentFolder.type === 'cabinet')
+    // 現在選択中のフォルダ、キャビネット、または最初のキャビネットを初期選択
+    const initialParent = currentFolder
       ? currentFolder
+      : (selectedParentFolder && (selectedParentFolder.type === 'cabinet' || selectedParentFolder.type === 'folder'))
+        ? selectedParentFolder
       : treeData.children[0];
 
     setSelectedParentForNewFolder(initialParent);
@@ -2597,7 +3033,6 @@ const DocumentLibrary = () => {
     if (deleteTarget.type === 'folder' && currentFolder?.id === deleteTarget.id) {
       setCurrentFolder(null);
       setSelectedParentFolder(null);
-      setBreadcrumbs([{ name: 'すべてのドキュメント', id: null }]);
     }
     if (deleteTarget.type === 'document' && selectedDocument?.id === deleteTarget.id) {
       setSelectedDocument(null);
@@ -2901,18 +3336,21 @@ const DocumentLibrary = () => {
     };
   }, [treeData, searchQuery]);
 
-  // 複数ファイル追加モーダルを開く
-  const openMultiFileModal = (folderId?: string) => {
-    const allFolders = getAllFolders();
-    if (allFolders.length === 0) {
-      alert('ファイルを保存するフォルダがありません。先にフォルダを作成してください。');
+  // ページ追加モーダルを開く
+  const openMultiFileModal = () => {
+    const allBinders = getAllBinders();
+    if (allBinders.length === 0) {
+      alert('ページを追加するバインダがありません。先にバインダを作成してください。');
       return;
     }
 
-    // フォルダIDが指定されている場合はそれを使用、なければ現在のフォルダまたは最初のフォルダ
-    const targetId = folderId || currentFolder?.id || allFolders[0].id;
-    setSelectedTargetFolder(targetId);
-    setSelectedFiles([]);
+    // 現在選択中のドキュメントまたは最初のバインダを初期選択
+    const targetBinder = (selectedDocument && selectedDocument.type === 'document')
+      ? selectedDocument
+      : allBinders[0];
+
+    setSelectedBookFolder(targetBinder);
+    setBookFiles([]);
     setShowMultiFileModal(true);
     setOpenMenuId(null); // メニューを閉じる
   };
@@ -2921,13 +3359,13 @@ const DocumentLibrary = () => {
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files);
-      setSelectedFiles(prev => [...prev, ...newFiles]);
+      setBookFiles(prev => [...prev, ...newFiles]);
     }
   };
 
   // ファイルをリストから削除
   const removeSelectedFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setBookFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   // ドラッグ&ドロップハンドラー（モーダル用）
@@ -2954,7 +3392,7 @@ const DocumentLibrary = () => {
     setIsModalDragging(false);
 
     const droppedFiles = Array.from(e.dataTransfer.files);
-    setSelectedFiles(prev => [...prev, ...droppedFiles]);
+    setBookFiles(prev => [...prev, ...droppedFiles]);
   };
 
   // 複数ファイルをアップロード
@@ -3008,7 +3446,6 @@ const DocumentLibrary = () => {
     setSelectedDocument(null);
     setCurrentFolder(null);
     setSelectedParentFolder(null);
-    setBreadcrumbs([{ name: 'ライブラリ', id: null }]);
     setSearchQuery('');
 
     alert('データを初期状態にリセットしました。');
@@ -3108,6 +3545,7 @@ const DocumentLibrary = () => {
     setViewMode('bookshelf');
     setSelectedDocument(null);
     setZoom(100);
+    setPdfScale(1.2);
     setRotation(0);
     setShowPageThumbnails(false);
   };
@@ -3248,152 +3686,257 @@ const DocumentLibrary = () => {
 
             {/* アクションボタン */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <button
-                onClick={() => openMultiFileModal()}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '10px 20px',
-                  backgroundColor: '#667eea',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  boxShadow: '0 2px 4px rgba(102, 126, 234, 0.2)'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#764ba2';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                  e.currentTarget.style.boxShadow = '0 4px 8px rgba(102, 126, 234, 0.3)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#667eea';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(102, 126, 234, 0.2)';
-                }}
-              >
-                <Plus style={{ width: '18px', height: '18px' }} />
-                ファイルを追加
-              </button>
+                {/* 作成ドロップダウンメニュー */}
+                <div className="create-dropdown" style={{ position: 'relative' }}>
+                  <button
+                    onClick={() => setShowCreateDropdown(!showCreateDropdown)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '10px 20px',
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      boxShadow: '0 2px 4px rgba(102, 126, 234, 0.2)'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                      e.currentTarget.style.boxShadow = '0 4px 8px rgba(102, 126, 234, 0.3)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'translateY(0)';
+                      e.currentTarget.style.boxShadow = '0 2px 4px rgba(102, 126, 234, 0.2)';
+                    }}
+                  >
+                    <Plus style={{ width: '18px', height: '18px' }} />
+                    作成
+                    <ChevronDown style={{ width: '16px', height: '16px' }} />
+                  </button>
 
-              <button
-                onClick={openNewFolderModal}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '10px 20px',
-                  backgroundColor: 'white',
-                  color: '#667eea',
-                  border: '2px solid #667eea',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#f0f1ff';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'white';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                }}
-              >
-                <FolderPlus style={{ width: '18px', height: '18px' }} />
-                フォルダ作成
-              </button>
+                  {/* ドロップダウンメニュー */}
+                  {showCreateDropdown && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 8px)',
+                        left: 0,
+                        backgroundColor: 'white',
+                        borderRadius: '12px',
+                        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
+                        minWidth: '220px',
+                        zIndex: 1000,
+                        overflow: 'hidden',
+                        border: '1px solid #e5e7eb'
+                      }}
+                    >
+                      {/* キャビネット作成 */}
+                      <button
+                        onClick={() => {
+                          setShowNewCabinetModal(true);
+                          setShowCreateDropdown(false);
+                        }}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          padding: '14px 16px',
+                          backgroundColor: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: '500',
+                          color: '#374151',
+                          textAlign: 'left',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f9fafb';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        <Archive style={{ width: '18px', height: '18px', color: '#8b5cf6' }} />
+                        <span>キャビネット作成</span>
+                      </button>
 
-              <button
-                onClick={() => setShowNewCabinetModal(true)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '10px 20px',
-                  backgroundColor: 'white',
-                  color: '#8b5cf6',
-                  border: '2px solid #8b5cf6',
-                  borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  cursor: 'pointer',
-                  transition: 'all 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#faf5ff';
-                  e.currentTarget.style.transform = 'translateY(-1px)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'white';
-                  e.currentTarget.style.transform = 'translateY(0)';
-                }}
-              >
-                <Book style={{ width: '18px', height: '18px' }} />
-                親フォルダ作成
-              </button>
+                      {/* フォルダ作成 */}
+                      <button
+                        onClick={() => {
+                          openNewFolderModal();
+                          setShowCreateDropdown(false);
+                        }}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          padding: '14px 16px',
+                          backgroundColor: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: '500',
+                          color: '#374151',
+                          textAlign: 'left',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f9fafb';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        <FolderPlus style={{ width: '18px', height: '18px', color: '#3b82f6' }} />
+                        <span>フォルダ作成</span>
+                      </button>
 
+                      {/* バインダを作成 */}
+                      <button
+                        onClick={() => {
+                          const allFolders = getAllFolders();
+                          if (allFolders.length === 0) {
+                            alert('バインダを保存するフォルダがありません。先にフォルダを作成してください。');
+                            return;
+                          }
+                          setShowCreateBookModal(true);
+                          setShowCreateDropdown(false);
+                        }}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          padding: '14px 16px',
+                          backgroundColor: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: '500',
+                          color: '#374151',
+                          textAlign: 'left',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f9fafb';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        <Book style={{ width: '18px', height: '18px', color: '#10b981' }} />
+                        <span>バインダを作成</span>
+                      </button>
+
+                      {/* 区切り線 */}
+                      <div style={{ height: '1px', backgroundColor: '#e5e7eb', margin: '4px 0' }} />
+
+                      {/* ページを追加 */}
+                      <button
+                        onClick={() => {
+                          openMultiFileModal();
+                          setShowCreateDropdown(false);
+                        }}
+                        style={{
+                          width: '100%',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '12px',
+                          padding: '14px 16px',
+                          backgroundColor: 'transparent',
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: '14px',
+                          fontWeight: '500',
+                          color: '#374151',
+                          textAlign: 'left',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#f9fafb';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        <FilePlus style={{ width: '18px', height: '18px', color: '#667eea' }} />
+                        <span>ページを追加</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* 区切り */}
+                <div style={{ width: '1px', height: '32px', backgroundColor: '#e5e7eb', margin: '0 4px' }} />
+
+                {/* エクスポート（アイコンのみ） */}
               <button
                 onClick={exportLibrary}
+                  title="エクスポート"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px',
-                  padding: '10px 20px',
+                  justifyContent: 'center',
+                  width: '40px',
+                  height: '40px',
                   backgroundColor: 'white',
                   color: '#64748b',
                   border: '2px solid #e2e8f0',
                   borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '600',
                   cursor: 'pointer',
                   transition: 'all 0.2s'
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#f8fafc';
                   e.currentTarget.style.borderColor = '#cbd5e1';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'white';
                   e.currentTarget.style.borderColor = '#e2e8f0';
+                  e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
-                <Download style={{ width: '18px', height: '18px' }} />
-                エクスポート
+                  <Download style={{ width: '18px', height: '18px' }} />
               </button>
 
+                {/* リセット（アイコンのみ） */}
               <button
                 onClick={resetLibrary}
+                  title="リセット"
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px',
-                  padding: '10px 20px',
+                  justifyContent: 'center',
+                  width: '40px',
+                  height: '40px',
                   backgroundColor: 'white',
                   color: '#ef4444',
                   border: '2px solid #fee2e2',
                   borderRadius: '8px',
-                  fontSize: '14px',
-                  fontWeight: '600',
                   cursor: 'pointer',
                   transition: 'all 0.2s'
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#fef2f2';
                   e.currentTarget.style.borderColor = '#ef4444';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = 'white';
                   e.currentTarget.style.borderColor = '#fee2e2';
+                  e.currentTarget.style.transform = 'translateY(0)';
                 }}
               >
-                <RotateCcw style={{ width: '18px', height: '18px' }} />
-                リセット
+                  <RotateCcw style={{ width: '18px', height: '18px' }} />
               </button>
 
               {/* ソート選択 */}
@@ -3464,6 +4007,96 @@ const DocumentLibrary = () => {
                 zIndex: 1000,
                 backgroundColor: '#f9fafb'
               }}>
+                {/* ズームコントロール（見開きビュー用） */}
+                <div style={{
+                  position: 'absolute',
+                  bottom: '20px',
+                  right: '20px',
+                  display: 'flex',
+                  gap: '6px',
+                  alignItems: 'center',
+                  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+                  backdropFilter: 'blur(10px)',
+                  borderRadius: '8px',
+                  padding: '6px 10px',
+                  zIndex: 2000
+                }}>
+                  {/* ズームアウトボタン */}
+                  <button
+                    onClick={() => setZoom(prev => Math.max(50, prev - 10))}
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      border: 'none',
+                      borderRadius: '6px',
+                      width: '28px',
+                      height: '28px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+                    title="ズームアウト"
+                  >
+                    <ZoomOut style={{ width: '16px', height: '16px', color: 'white' }} />
+                  </button>
+
+                  {/* パーセンテージ表示 */}
+                  <div style={{
+                    color: 'white',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    minWidth: '50px',
+                    textAlign: 'center'
+                  }}>
+                    {zoom}%
+                  </div>
+
+                  {/* ズームインボタン */}
+                  <button
+                    onClick={() => setZoom(prev => Math.min(300, prev + 10))}
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      border: 'none',
+                      borderRadius: '6px',
+                      width: '28px',
+                      height: '28px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+                    title="ズームイン"
+                  >
+                    <ZoomIn style={{ width: '16px', height: '16px', color: 'white' }} />
+                  </button>
+
+                  {/* リセットボタン */}
+                  <button
+                    onClick={() => setZoom(100)}
+                    style={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      border: 'none',
+                      borderRadius: '6px',
+                      padding: '6px 10px',
+                      color: 'white',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+                    title="リセット"
+                  >
+                    リセット
+                  </button>
+                </div>
                 {/* サイドバー */}
                 {isSpreadSidebarOpen && (
                   <div style={{
@@ -3624,6 +4257,36 @@ const DocumentLibrary = () => {
                               }}>
                                 {folderCount}
                               </span>
+                              {/* 3点リーダーボタン */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setRenameTarget({ type: 'cabinet', id: cabinet.id, currentName: cabinet.name });
+                                  setNewName(cabinet.name);
+                                  setShowRenameModal(true);
+                                }}
+                                style={{
+                                  marginLeft: '8px',
+                                  padding: '4px',
+                                  backgroundColor: '#d1d5db',
+                                  border: 'none',
+                                  borderRadius: '4px',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  transition: 'all 0.2s'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = '#9ca3af';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = '#d1d5db';
+                                }}
+                                title="名称変更"
+                              >
+                                <MoreVertical style={{ width: '14px', height: '14px', color: '#1f2937' }} />
+                              </button>
                             </div>
 
                             {/* フォルダリスト */}
@@ -3635,73 +4298,154 @@ const DocumentLibrary = () => {
                                 paddingLeft: '8px'
                               }}>
                                 {cabinet.children.map((folder: FolderNode) => {
-                                  const isSelected = selectedFolderId === folder.id;
-                                  // フォルダの色を取得（デフォルトは黄色）
-                                  const folderColorMap: Record<string, string> = {
-                                    blue: '#3b82f6',
-                                    green: '#10b981',
-                                    red: '#ef4444',
-                                    purple: '#8b5cf6',
-                                    yellow: '#f59e0b',
-                                  };
-                                  const folderColor = folderColorMap[folder.color || 'yellow'] || '#f59e0b';
+                                  const renderFolder = (folder: FolderNode, depth: number = 0): React.ReactNode => {
+                                    const isSelected = selectedFolderId === folder.id;
+                                    const isFolderExpanded = expandedFolders.has(folder.id);
+                                    const hasSubFolders = folder.children && folder.children.filter((child: any) => child.type === 'folder').length > 0;
+                                    const hasChildren = hasSubFolders;
 
-                                  return (
-                                    <div
-                                      key={folder.id}
-                                      style={{
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        padding: '8px 10px',
-                                        backgroundColor: isSelected ? '#e8eaf6' : 'transparent',
-                                        borderRadius: '6px',
-                                        cursor: 'pointer',
-                                        marginBottom: '2px',
-                                        border: isSelected ? '1px solid #667eea' : '1px solid transparent',
-                                        transition: 'all 0.2s'
-                                      }}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setSelectedFolderId(folder.id);
-                                        setCurrentFolder(folder);
-                                        setSelectedDocument(null);
-                                        setViewMode('bookshelf');
-                                      }}
-                                      onMouseEnter={(e) => {
-                                        if (!isSelected) {
-                                          e.currentTarget.style.backgroundColor = '#f3f4f6';
-                                        }
-                                      }}
-                                      onMouseLeave={(e) => {
-                                        if (!isSelected) {
-                                          e.currentTarget.style.backgroundColor = 'transparent';
-                                        }
-                                      }}
-                                    >
-                                      <Folder
-                                        style={{
-                                          width: '16px',
-                                          height: '16px',
-                                          marginRight: '8px',
-                                          color: folderColor
-                                        }}
-                                      />
-                                      <span style={{
-                                        flex: 1,
-                                        fontSize: '13px',
-                                        fontWeight: isSelected ? '600' : '400',
-                                        color: '#374151'
-                                      }}>
-                                        {folder.name}
-                                      </span>
-                                      <span style={{
-                                        fontSize: '11px',
-                                        color: '#9ca3af'
-                                      }}>
-                                        {folder.children?.length || 0}
-                                      </span>
-                                    </div>
-                                  );
+                                    // フォルダの色を取得（デフォルトは黄色）
+                                    const folderColorMap: Record<string, string> = {
+                                      blue: '#3b82f6',
+                                      green: '#10b981',
+                                      red: '#ef4444',
+                                      purple: '#8b5cf6',
+                                      yellow: '#f59e0b',
+                                    };
+                                    const folderColor = folderColorMap[folder.color || 'yellow'] || '#f59e0b';
+
+                                    return (
+                                      <div key={folder.id} style={{ marginBottom: '2px' }}>
+                                        <div
+                                          style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            padding: '8px 10px',
+                                            backgroundColor: isSelected ? '#e8eaf6' : 'transparent',
+                                            borderRadius: '6px',
+                                            cursor: 'pointer',
+                                            border: isSelected ? '1px solid #667eea' : '1px solid transparent',
+                                            transition: 'all 0.2s'
+                                          }}
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+
+                                            // 子フォルダがある場合は展開/折りたたみ
+                                            if (hasChildren) {
+                                              const newExpanded = new Set(expandedFolders);
+                                              if (isFolderExpanded) {
+                                                newExpanded.delete(folder.id);
+                                              } else {
+                                                newExpanded.add(folder.id);
+                                              }
+                                              setExpandedFolders(newExpanded);
+                                            }
+
+                                            // フォルダを選択
+                                            setSelectedFolderId(folder.id);
+                                            setCurrentFolder(folder);
+                                            setSelectedDocument(null);
+                                            setViewMode('bookshelf');
+                                            setZoom(100);
+                                            setPdfScale(1.2);
+                                          }}
+                                          onMouseEnter={(e) => {
+                                            if (!isSelected) {
+                                              e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                            }
+                                          }}
+                                          onMouseLeave={(e) => {
+                                            if (!isSelected) {
+                                              e.currentTarget.style.backgroundColor = 'transparent';
+                                            }
+                                          }}
+                                        >
+                                          {hasChildren && (
+                                            <ChevronRight
+                                              style={{
+                                                width: '14px',
+                                                height: '14px',
+                                                marginRight: '4px',
+                                                transform: isFolderExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                                                transition: 'transform 0.2s',
+                                                color: '#667eea'
+                                              }}
+                                            />
+                                          )}
+                                          <Folder
+                                            style={{
+                                              width: '16px',
+                                              height: '16px',
+                                              marginRight: '8px',
+                                              marginLeft: hasChildren ? '0' : '18px',
+                                              color: folderColor
+                                            }}
+                                          />
+                                          <span style={{
+                                            flex: 1,
+                                            fontSize: '13px',
+                                            fontWeight: isSelected ? '600' : '400',
+                                            color: '#374151'
+                                          }}>
+                                            {folder.name}
+                                          </span>
+                                          {hasChildren && (
+                                            <span style={{
+                                              fontSize: '11px',
+                                              color: '#9ca3af'
+                                            }}>
+                                              {folder.children?.filter((child: any) => child.type === 'folder').length || 0}
+                                            </span>
+                                          )}
+                                          {/* 3点リーダーボタン */}
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              setRenameTarget({ type: 'folder', id: folder.id, currentName: folder.name, currentColor: folder.color });
+                                              setNewName(folder.name);
+                                              setNewColor(folder.color || 'yellow');
+                                              setShowRenameModal(true);
+                                            }}
+                                            style={{
+                                              marginLeft: '6px',
+                                              padding: '3px',
+                                              backgroundColor: '#d1d5db',
+                                              border: 'none',
+                                              borderRadius: '3px',
+                                              cursor: 'pointer',
+                                              display: 'flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              transition: 'all 0.2s'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                              e.currentTarget.style.backgroundColor = '#9ca3af';
+                                            }}
+                                            onMouseLeave={(e) => {
+                                              e.currentTarget.style.backgroundColor = '#d1d5db';
+                                            }}
+                                            title="名称変更"
+                                          >
+                                            <MoreVertical style={{ width: '12px', height: '12px', color: '#1f2937' }} />
+                                          </button>
+                                        </div>
+
+                                        {/* サブフォルダを再帰的に表示 */}
+                                        {isFolderExpanded && hasChildren && (
+                                          <div style={{
+                                            marginLeft: '16px',
+                                            marginTop: '2px',
+                                            borderLeft: '2px solid #e5e7eb',
+                                            paddingLeft: '8px'
+                                          }}>
+                                            {folder.children.map((childFolder: FolderNode) => renderFolder(childFolder, depth + 1))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  };
+
+                                  return renderFolder(folder);
                                 })}
                               </div>
                             )}
@@ -4127,6 +4871,36 @@ const DocumentLibrary = () => {
                             }}>
                               {folderCount}
                             </span>
+                            {/* 3点リーダーボタン */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setRenameTarget({ type: 'cabinet', id: cabinet.id, currentName: cabinet.name });
+                                setNewName(cabinet.name);
+                                setShowRenameModal(true);
+                              }}
+                              style={{
+                                marginLeft: '8px',
+                                padding: '4px',
+                                backgroundColor: '#d1d5db',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.backgroundColor = '#9ca3af';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.backgroundColor = '#d1d5db';
+                              }}
+                              title="名称変更"
+                            >
+                              <MoreVertical style={{ width: '14px', height: '14px', color: '#1f2937' }} />
+                            </button>
                           </div>
 
                           {/* フォルダリスト */}
@@ -4138,71 +4912,150 @@ const DocumentLibrary = () => {
                               paddingLeft: '8px'
                             }}>
                               {cabinet.children.map((folder: FolderNode) => {
-                                const isSelected = selectedFolderId === folder.id;
-                                // フォルダの色を取得（デフォルトは黄色）
-                                const folderColorMap: Record<string, string> = {
-                                  blue: '#3b82f6',
-                                  green: '#10b981',
-                                  red: '#ef4444',
-                                  purple: '#8b5cf6',
-                                  yellow: '#f59e0b',
-                                };
-                                const folderColor = folderColorMap[folder.color || 'yellow'] || '#f59e0b';
+                                const renderFolder = (folder: FolderNode, depth: number = 0): React.ReactNode => {
+                                  const isSelected = selectedFolderId === folder.id;
+                                  const isFolderExpanded = expandedFolders.has(folder.id);
+                                  const hasSubFolders = folder.children && folder.children.filter((child: any) => child.type === 'folder').length > 0;
+                                  const hasChildren = hasSubFolders;
 
-                                return (
-                                  <div
-                                    key={folder.id}
-                                    style={{
-                                      display: 'flex',
-                                      alignItems: 'center',
-                                      padding: '8px 10px',
-                                      backgroundColor: isSelected ? '#e8eaf6' : 'transparent',
-                                      borderRadius: '6px',
-                                      cursor: 'pointer',
-                                      marginBottom: '2px',
-                                      border: isSelected ? '1px solid #667eea' : '1px solid transparent',
-                                      transition: 'all 0.2s'
-                                    }}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedFolderId(folder.id);
-                                      setCurrentFolder(folder);
-                                    }}
-                                    onMouseEnter={(e) => {
-                                      if (!isSelected) {
-                                        e.currentTarget.style.backgroundColor = '#f3f4f6';
-                                      }
-                                    }}
-                                    onMouseLeave={(e) => {
-                                      if (!isSelected) {
-                                        e.currentTarget.style.backgroundColor = 'transparent';
-                                      }
-                                    }}
-                                  >
-                                    <Folder
-                                      style={{
-                                        width: '16px',
-                                        height: '16px',
-                                        marginRight: '8px',
-                                        color: folderColor
-                                      }}
-                                    />
-                                    <span style={{
-                                      flex: 1,
-                                      fontSize: '13px',
-                                      fontWeight: isSelected ? '600' : '400',
-                                      color: '#374151'
-                                    }}>
-                                      {folder.name}
-                                    </span>
-                                    <span style={{
-                                      fontSize: '11px',
-                                      color: '#9ca3af'
-                                    }}>
-                                      {folder.children?.length || 0}
-                                    </span>
-                                  </div>
-                                );
+                                  // フォルダの色を取得（デフォルトは黄色）
+                                  const folderColorMap: Record<string, string> = {
+                                    blue: '#3b82f6',
+                                    green: '#10b981',
+                                    red: '#ef4444',
+                                    purple: '#8b5cf6',
+                                    yellow: '#f59e0b',
+                                  };
+                                  const folderColor = folderColorMap[folder.color || 'yellow'] || '#f59e0b';
+
+                                  return (
+                                    <div key={folder.id} style={{ marginBottom: '2px' }}>
+                                      <div
+                                        style={{
+                                          display: 'flex',
+                                          alignItems: 'center',
+                                          padding: '8px 10px',
+                                          backgroundColor: isSelected ? '#e8eaf6' : 'transparent',
+                                          borderRadius: '6px',
+                                          cursor: 'pointer',
+                                          border: isSelected ? '1px solid #667eea' : '1px solid transparent',
+                                          transition: 'all 0.2s'
+                                        }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+
+                                          // 子フォルダがある場合は展開/折りたたみ
+                                          if (hasChildren) {
+                                            const newExpanded = new Set(expandedFolders);
+                                            if (isFolderExpanded) {
+                                              newExpanded.delete(folder.id);
+                                            } else {
+                                              newExpanded.add(folder.id);
+                                            }
+                                            setExpandedFolders(newExpanded);
+                                          }
+
+                                          // フォルダを選択
+                                          setSelectedFolderId(folder.id);
+                                          setCurrentFolder(folder);
+                                        }}
+                                        onMouseEnter={(e) => {
+                                          if (!isSelected) {
+                                            e.currentTarget.style.backgroundColor = '#f3f4f6';
+                                          }
+                                        }}
+                                        onMouseLeave={(e) => {
+                                          if (!isSelected) {
+                                            e.currentTarget.style.backgroundColor = 'transparent';
+                                          }
+                                        }}
+                                      >
+                                        {hasChildren && (
+                                          <ChevronRight
+                                            style={{
+                                              width: '14px',
+                                              height: '14px',
+                                              marginRight: '4px',
+                                              transform: isFolderExpanded ? 'rotate(90deg)' : 'rotate(0deg)',
+                                              transition: 'transform 0.2s',
+                                              color: '#667eea'
+                                            }}
+                                          />
+                                        )}
+                                        <Folder
+                                          style={{
+                                            width: '16px',
+                                            height: '16px',
+                                            marginRight: '8px',
+                                            marginLeft: hasChildren ? '0' : '18px',
+                                            color: folderColor
+                                          }}
+                                        />
+                                        <span style={{
+                                          flex: 1,
+                                          fontSize: '13px',
+                                          fontWeight: isSelected ? '600' : '400',
+                                          color: '#374151'
+                                        }}>
+                                          {folder.name}
+                                        </span>
+                                        {hasChildren && (
+                                          <span style={{
+                                            fontSize: '11px',
+                                            color: '#9ca3af'
+                                          }}>
+                                            {folder.children?.filter((child: any) => child.type === 'folder').length || 0}
+                                          </span>
+                                        )}
+                                        {/* 3点リーダーボタン */}
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setRenameTarget({ type: 'folder', id: folder.id, currentName: folder.name, currentColor: folder.color });
+                                            setNewName(folder.name);
+                                            setNewColor(folder.color || 'yellow');
+                                            setShowRenameModal(true);
+                                          }}
+                                          style={{
+                                            marginLeft: '6px',
+                                            padding: '3px',
+                                            backgroundColor: '#d1d5db',
+                                            border: 'none',
+                                            borderRadius: '3px',
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            transition: 'all 0.2s'
+                                          }}
+                                          onMouseEnter={(e) => {
+                                            e.currentTarget.style.backgroundColor = '#9ca3af';
+                                          }}
+                                          onMouseLeave={(e) => {
+                                            e.currentTarget.style.backgroundColor = '#d1d5db';
+                                          }}
+                                          title="名称変更"
+                                        >
+                                          <MoreVertical style={{ width: '12px', height: '12px', color: '#1f2937' }} />
+                                        </button>
+                                      </div>
+
+                                      {/* サブフォルダを再帰的に表示 */}
+                                      {isFolderExpanded && hasChildren && (
+                                        <div style={{
+                                          marginLeft: '16px',
+                                          marginTop: '2px',
+                                          borderLeft: '2px solid #e5e7eb',
+                                          paddingLeft: '8px'
+                                        }}>
+                                          {folder.children.map((childFolder: FolderNode) => renderFolder(childFolder, depth + 1))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                };
+
+                                return renderFolder(folder);
                               })}
                             </div>
                           )}
@@ -4227,16 +5080,15 @@ const DocumentLibrary = () => {
                         handleBookClick(doc);
                         setViewMode('spread');
                       }}
+                        onFolderClick={(folder) => {
+                          setSelectedFolderId(folder.id);
+                          setCurrentFolder(folder);
+                        }}
                       currentCabinetName={currentFolder.name}
                       onBackClick={() => {
                         setSelectedFolderId(null);
                         setCurrentFolder(null);
                       }}
-                      breadcrumbs={[
-                        { name: 'ライブラリ', id: null },
-                        { name: currentFolder.name, id: currentFolder.id }
-                      ]}
-                      onBreadcrumbClick={() => {}}
                       isSelectionMode={isSelectionMode}
                       selectedDocumentIds={selectedDocumentIds}
                       onToggleDocumentSelection={toggleDocumentSelection}
@@ -4244,6 +5096,14 @@ const DocumentLibrary = () => {
                       onSelectAll={selectAllDocuments}
                       onDeselectAll={deselectAllDocuments}
                       onBulkDelete={bulkDeleteDocuments}
+                      onRename={(documentId) => {
+                        if ('children' in currentFolder && currentFolder.children) {
+                          const doc = findNodeById(currentFolder.children as TreeNode[], documentId);
+                          if (doc) {
+                            openRenameModal('document', documentId, doc.name);
+                          }
+                        }
+                      }}
                     />
                   ) : (
                     <div style={{
@@ -4396,6 +5256,108 @@ const DocumentLibrary = () => {
             </button>
           </div>
 
+          {/* ズームコントロール */}
+          <div style={{
+            position: 'absolute',
+            bottom: '80px',
+            right: '24px',
+            display: 'flex',
+            gap: '6px',
+            alignItems: 'center',
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '8px',
+            padding: '6px 10px',
+            zIndex: 200
+          }}
+          onClick={(e) => e.stopPropagation()}
+          >
+            {/* ズームアウトボタン */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setPdfScale(prev => Math.max(0.5, prev - 0.1));
+              }}
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                border: 'none',
+                borderRadius: '6px',
+                width: '28px',
+                height: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+              title="ズームアウト"
+            >
+              <ZoomOut style={{ width: '16px', height: '16px', color: 'white' }} />
+            </button>
+
+            {/* パーセンテージ表示 */}
+            <div style={{
+              color: 'white',
+              fontSize: '12px',
+              fontWeight: '600',
+              minWidth: '50px',
+              textAlign: 'center'
+            }}>
+              {Math.round(pdfScale * 100)}%
+            </div>
+
+            {/* ズームインボタン */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setPdfScale(prev => Math.min(3.0, prev + 0.1));
+              }}
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                border: 'none',
+                borderRadius: '6px',
+                width: '28px',
+                height: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+              title="ズームイン"
+            >
+              <ZoomIn style={{ width: '16px', height: '16px', color: 'white' }} />
+            </button>
+
+            {/* リセットボタン */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setPdfScale(1.2);
+              }}
+              style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '6px 10px',
+                color: 'white',
+                fontSize: '11px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.2)'}
+              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.1)'}
+              title="リセット"
+            >
+              リセット
+            </button>
+          </div>
+
           {/* ナビゲーションボタン（左） */}
           {currentPage > 0 && (
             <button
@@ -4529,11 +5491,12 @@ const DocumentLibrary = () => {
                     backgroundColor: '#ffffff',
                     borderRadius: '12px',
                     padding: '16px',
-                    maxHeight: '80vh',
-                    overflow: 'hidden',
+                    maxHeight: pdfScale > 1.2 ? 'none' : '80vh',
+                    maxWidth: pdfScale > 1.2 ? 'none' : '100%',
+                    overflow: pdfScale > 1.2 ? 'auto' : 'hidden',
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    alignItems: pdfScale > 1.2 ? 'flex-start' : 'center',
+                    justifyContent: pdfScale > 1.2 ? 'flex-start' : 'center',
                     boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
                     position: 'relative',
                     zIndex: 100,
@@ -4848,6 +5811,240 @@ const DocumentLibrary = () => {
         </div>
       )}
 
+      {/* バインダ作成モーダル（複数PDFファイルを1つのバインダにまとめる） */}
+      {showCreateBookModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">バインダを作成</h3>
+              <button
+                onClick={() => {
+                  setShowCreateBookModal(false);
+                  setBookFiles([]);
+                  setBookName('');
+                  setBookColor('blue');
+                  setSelectedBookFolder(null);
+                }}
+                className="p-1 hover:bg-gray-100 rounded"
+              >
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            {/* バインダ名 */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{
+                display: 'block',
+                fontSize: '14px',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '8px'
+              }}>
+                バインダ名
+              </label>
+              <input
+                type="text"
+                value={bookName}
+                onChange={(e) => setBookName(e.target.value)}
+                placeholder="例: 採用"
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  fontSize: '14px',
+                  border: '2px solid #e5e7eb',
+                  borderRadius: '8px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+
+            {/* 保存先フォルダ選択 */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{
+                display: 'block',
+                fontSize: '14px',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '8px'
+              }}>
+                保存先フォルダ
+              </label>
+              <select
+                value={selectedBookFolder?.id || ''}
+                onChange={(e) => {
+                  const allFolders = getAllFolders();
+                  const folder = allFolders.find(f => f.id === e.target.value);
+                  setSelectedBookFolder(folder);
+                }}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  fontSize: '14px',
+                  border: '2px solid #e5e7eb',
+                  borderRadius: '8px',
+                  outline: 'none',
+                  backgroundColor: 'white',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="">フォルダを選択してください</option>
+                {getAllFolders().map(folder => (
+                  <option key={folder.id} value={folder.id}>
+                    {folder.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 色ラベル選択 */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{
+                display: 'block',
+                fontSize: '14px',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '8px'
+              }}>
+                色ラベル
+              </label>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                {folderColorOptions.map(option => (
+                  <button
+                    key={option.value}
+                    onClick={() => setBookColor(option.value)}
+                    style={{
+                      width: '40px',
+                      height: '40px',
+                      borderRadius: '8px',
+                      backgroundColor: option.color,
+                      border: bookColor === option.value ? '3px solid #1f2937' : '2px solid #e5e7eb',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      boxShadow: bookColor === option.value ? '0 4px 8px rgba(0,0,0,0.2)' : 'none'
+                    }}
+                    title={option.name}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* ファイル選択 */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{
+                display: 'block',
+                fontSize: '14px',
+                fontWeight: '600',
+                color: '#374151',
+                marginBottom: '8px'
+              }}>
+                PDFファイル（複数選択可）
+              </label>
+              <input
+                type="file"
+                accept=".pdf"
+                multiple
+                onChange={(e) => {
+                  if (e.target.files) {
+                    setBookFiles(Array.from(e.target.files));
+                  }
+                }}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  fontSize: '14px',
+                  border: '2px dashed #e5e7eb',
+                  borderRadius: '8px',
+                  cursor: 'pointer'
+                }}
+              />
+            </div>
+
+            {/* 選択されたファイル一覧 */}
+            {bookFiles.length > 0 && (
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{
+                  display: 'block',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  color: '#374151',
+                  marginBottom: '8px'
+                }}>
+                  選択されたファイル（{bookFiles.length}個）
+                </label>
+                <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px', padding: '8px' }}>
+                  {bookFiles.map((file, index) => (
+                    <div key={index} style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '8px',
+                      backgroundColor: '#f9fafb',
+                      borderRadius: '6px',
+                      marginBottom: '4px'
+                    }}>
+                      <span style={{ fontSize: '12px', color: '#6b7280', minWidth: '30px' }}>
+                        {index + 1}.
+                      </span>
+                      <File className="w-4 h-4 text-red-500" />
+                      <span style={{ fontSize: '13px', color: '#374151', flex: 1 }}>
+                        {file.name}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setBookFiles(bookFiles.filter((_, i) => i !== index));
+                        }}
+                        style={{
+                          padding: '4px',
+                          color: '#ef4444',
+                          cursor: 'pointer',
+                          background: 'none',
+                          border: 'none'
+                        }}
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ボタン */}
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowCreateBookModal(false);
+                  setBookFiles([]);
+                  setBookName('');
+                  setBookColor('blue');
+                  setSelectedBookFolder(null);
+                }}
+                className="flex-1 px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={createBook}
+                disabled={!bookName.trim() || bookFiles.length === 0 || !selectedBookFolder}
+                style={{
+                  flex: 1,
+                  padding: '8px 16px',
+                  backgroundColor: (!bookName.trim() || bookFiles.length === 0 || !selectedBookFolder) ? '#d1d5db' : '#667eea',
+                  color: 'white',
+                  borderRadius: '8px',
+                  cursor: (!bookName.trim() || bookFiles.length === 0 || !selectedBookFolder) ? 'not-allowed' : 'pointer',
+                  border: 'none',
+                  fontWeight: '600',
+                  transition: 'all 0.2s'
+                }}
+              >
+                バインダを作成
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 新しいフォルダ作成モーダル - 改善版 */}
       {showNewFolderModal && (
         <div style={{
@@ -5020,12 +6217,29 @@ const DocumentLibrary = () => {
                 color: '#374151',
                 marginBottom: '8px'
               }}>
-                作成先
+                作成先（親フォルダまたはキャビネット）
               </label>
               <select
                 value={selectedParentForNewFolder?.id || ''}
                 onChange={(e) => {
-                  const parent = treeData.children.find(c => c.id === e.target.value);
+                  // キャビネットから検索
+                  let parent = treeData.children.find(c => c.id === e.target.value);
+
+                  // フォルダから検索
+                  if (!parent) {
+                    const findInTree = (nodes: TreeNode[]): TreeNode | undefined => {
+                      for (const node of nodes) {
+                        if (node.id === e.target.value) return node;
+                        if ('children' in node && node.children) {
+                          const found = findInTree(node.children);
+                          if (found) return found;
+                        }
+                      }
+                      return undefined;
+                    };
+                    parent = findInTree(treeData.children);
+                  }
+
                   setSelectedParentForNewFolder(parent);
                 }}
                 style={{
@@ -5043,11 +6257,40 @@ const DocumentLibrary = () => {
                 onFocus={(e) => e.target.style.borderColor = '#6366f1'}
                 onBlur={(e) => e.target.style.borderColor = '#e5e7eb'}
               >
+                {/* キャビネット */}
                 {treeData.children.filter(c => c.type === 'cabinet').map(cabinet => (
                   <option key={cabinet.id} value={cabinet.id}>
-                    {cabinet.name}
+                    📁 {cabinet.name}
                   </option>
                 ))}
+
+                {/* フォルダ（ネストして表示） */}
+                {(() => {
+                  const renderFolderOptions = (nodes: TreeNode[], depth: number = 0): JSX.Element[] => {
+                    const options: JSX.Element[] = [];
+
+                    nodes.forEach(node => {
+                      if (node.type === 'folder') {
+                        const indent = '　'.repeat(depth + 1);
+                        options.push(
+                          <option key={node.id} value={node.id}>
+                            {indent}└ {node.name}
+                          </option>
+                        );
+
+                        if ('children' in node && node.children) {
+                          options.push(...renderFolderOptions(node.children, depth + 1));
+                        }
+                      }
+                    });
+
+                    return options;
+                  };
+
+                  return treeData.children.flatMap(cabinet =>
+                    'children' in cabinet ? renderFolderOptions(cabinet.children, 0) : []
+                  );
+                })()}
               </select>
 
               {/* 説明テキスト */}
@@ -6321,7 +7564,7 @@ const DocumentLibrary = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <FilePlus style={{ width: '28px', height: '28px' }} />
                   <h3 style={{ fontSize: '20px', fontWeight: '700', margin: 0 }}>
-                    ファイルを追加
+                    ページを追加
                   </h3>
                 </div>
                 <button
@@ -6348,7 +7591,7 @@ const DocumentLibrary = () => {
 
             {/* コンテンツ */}
             <div style={{ padding: '32px', flexGrow: 1, overflow: 'auto' }}>
-              {/* フォルダ選択 */}
+              {/* バインダ選択 */}
               <div style={{ marginBottom: '24px' }}>
                 <label style={{
                   display: 'block',
@@ -6357,11 +7600,15 @@ const DocumentLibrary = () => {
                   color: '#6b7280',
                   marginBottom: '8px'
                 }}>
-                  📁 追加先フォルダを選択
+                  📖 追加先バインダを選択
                 </label>
                 <select
-                  value={selectedTargetFolder}
-                  onChange={(e) => setSelectedTargetFolder(e.target.value)}
+                  value={selectedBookFolder?.id || ''}
+                  onChange={(e) => {
+                    const allBinders = getAllBinders();
+                    const binder = allBinders.find(b => b.id === e.target.value);
+                    setSelectedBookFolder(binder || null);
+                  }}
                   style={{
                     width: '100%',
                     padding: '12px 16px',
@@ -6376,8 +7623,8 @@ const DocumentLibrary = () => {
                   onFocus={(e) => e.currentTarget.style.borderColor = '#667eea'}
                   onBlur={(e) => e.currentTarget.style.borderColor = '#e5e7eb'}
                 >
-                  {getAllFolders().map(folder => (
-                    <option key={folder.id} value={folder.id}>{folder.name}</option>
+                  {getAllBinders().map(binder => (
+                    <option key={binder.id} value={binder.id}>{binder.name}</option>
                   ))}
                 </select>
               </div>
@@ -6427,7 +7674,7 @@ const DocumentLibrary = () => {
               </div>
 
               {/* 選択済みファイル一覧 */}
-              {selectedFiles.length > 0 && (
+              {bookFiles.length > 0 && (
                 <div>
                   <label style={{
                     display: 'block',
@@ -6436,7 +7683,7 @@ const DocumentLibrary = () => {
                     color: '#6b7280',
                     marginBottom: '8px'
                   }}>
-                    選択済みファイル ({selectedFiles.length}件)
+                    選択済みファイル ({bookFiles.length}件)
                   </label>
                   <div style={{
                     maxHeight: '200px',
@@ -6445,7 +7692,7 @@ const DocumentLibrary = () => {
                     borderRadius: '12px',
                     padding: '8px'
                   }}>
-                    {selectedFiles.map((file, index) => (
+                    {bookFiles.map((file, index) => (
                       <div
                         key={index}
                         style={{
@@ -6523,37 +7770,37 @@ const DocumentLibrary = () => {
                   キャンセル
                 </button>
                 <button
-                  onClick={executeMultiFileUpload}
-                  disabled={selectedFiles.length === 0}
+                  onClick={addPagesToBinder}
+                  disabled={bookFiles.length === 0}
                   style={{
                     flex: 1,
                     padding: '14px 24px',
-                    background: selectedFiles.length > 0
+                    background: bookFiles.length > 0
                       ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
                       : '#d1d5db',
                     border: 'none',
                     borderRadius: '12px',
                     fontSize: '15px',
                     fontWeight: '600',
-                    cursor: selectedFiles.length > 0 ? 'pointer' : 'not-allowed',
+                    cursor: bookFiles.length > 0 ? 'pointer' : 'not-allowed',
                     transition: 'all 0.2s',
                     color: 'white',
-                    boxShadow: selectedFiles.length > 0 ? '0 4px 12px rgba(102, 126, 234, 0.3)' : 'none'
+                    boxShadow: bookFiles.length > 0 ? '0 4px 12px rgba(102, 126, 234, 0.3)' : 'none'
                   }}
                   onMouseEnter={(e) => {
-                    if (selectedFiles.length > 0) {
+                    if (bookFiles.length > 0) {
                       e.currentTarget.style.transform = 'translateY(-1px)';
                       e.currentTarget.style.boxShadow = '0 6px 16px rgba(102, 126, 234, 0.4)';
                     }
                   }}
                   onMouseLeave={(e) => {
-                    if (selectedFiles.length > 0) {
+                    if (bookFiles.length > 0) {
                       e.currentTarget.style.transform = 'translateY(0)';
                       e.currentTarget.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.3)';
                     }
                   }}
                 >
-                  アップロード ({selectedFiles.length}件)
+                  ページを追加 ({bookFiles.length}件)
                 </button>
               </div>
             </div>

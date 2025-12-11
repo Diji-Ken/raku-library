@@ -19,7 +19,7 @@ const BookCard: React.FC<BookCardProps> = ({
   onToggleSelection
 }) => {
   const [pdfPageCount, setPdfPageCount] = useState<number | null>(null);
-  const isPDF = !!(document.originalFile || document.pdfUrl);
+  const isPDF = !!(document.originalFile || document.pdfUrl || document.pdfPages);
   const getBookColor = (color?: string) => {
     const colorMap: Record<string, string> = {
       blue: '#3b82f6',
@@ -41,8 +41,8 @@ const BookCard: React.FC<BookCardProps> = ({
 
   const bookColor = getBookColor(document.color);
   const documentType = getDocumentTypeLabel(document.name);
-  // PDFの場合はpdfPageCount（動的取得）またはnumPages、それ以外はpages配列の長さ
-  const pageCount = pdfPageCount || document.numPages || document.pages?.length || 0;
+  // pdfPages配列があればそれを優先、次にPDFページ数、最後にpages配列の長さ
+  const pageCount = document.pdfPages?.length || pdfPageCount || document.numPages || document.pages?.length || 0;
 
   const handleClick = () => {
     if (isSelectionMode && onToggleSelection) {
@@ -53,8 +53,9 @@ const BookCard: React.FC<BookCardProps> = ({
   };
 
   // PDFのページ数を取得するための非表示Document
+  // pdfPagesがある場合は不要（配列の長さがページ数）
   let pdfSource = null;
-  if (isPDF) {
+  if (isPDF && !document.pdfPages) {
     pdfSource = document.originalFile;
     if (!pdfSource && document.pdfUrl) {
       // URLの各部分をencodeする（/files/の部分は除く）
@@ -76,9 +77,23 @@ const BookCard: React.FC<BookCardProps> = ({
             cursor: 'pointer',
             opacity: isSelected ? 0.8 : 1,
             transition: 'opacity 0.2s',
-            border: isSelected ? '2px solid #667eea' : undefined
+            border: isSelected ? '2px solid #667eea' : undefined,
+            position: 'relative'
           }}
         >
+          {/* カラーラベル */}
+          {document.color && (
+            <div style={{
+              position: 'absolute',
+              top: '0',
+              left: '0',
+              right: '0',
+              height: '8px',
+              backgroundColor: bookColor,
+              borderRadius: '0'
+            }} />
+          )}
+
           <div className="book-title-vertical">
             {document.name}
           </div>
@@ -136,8 +151,8 @@ const BookCard: React.FC<BookCardProps> = ({
         )}
       </div>
 
-      {/* PDFのページ数を取得するための非表示Document */}
-      {isPDF && pdfSource && (
+      {/* PDFのページ数を取得するための非表示Document（pdfPagesがある場合は不要） */}
+      {isPDF && pdfSource && !document.pdfPages && (
         <div style={{ display: 'none' }}>
           <Document
             file={pdfSource}
